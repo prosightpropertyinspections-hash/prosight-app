@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { getReport, updateReport } from "@/lib/data";
@@ -12,13 +12,19 @@ export default function PrintReport(){
   const sb = createClient();
   const sp = useSearchParams();
   const pdfMode = sp.get("pdf")==="1";
-  const [dl,setDl]=useState(false);
+  const token = sp.get("token");
   const [report,setReport]=useState<Report|null>(null);
   const [urls,setUrls]=useState<Record<string,string>>({});
   const [theme,setTheme]=useState<string>("estate");
   const [ready,setReady]=useState(false);
 
   useEffect(()=>{ (async()=>{
+    if(token){
+      // headless/PDF path: load via signed token, no login needed
+      const res=await fetch(`/api/report-data?token=${encodeURIComponent(token)}`);
+      if(res.ok){ const j=await res.json(); setReport(j.report); setTheme(j.report?.theme||"estate"); setUrls(j.urls||{}); }
+      setReady(true); return;
+    }
     const r = await getReport(id); setReport(r);
     if(r){
       setTheme(r.theme||"estate");
@@ -29,24 +35,24 @@ export default function PrintReport(){
       setUrls(map);
     }
     setReady(true);
-  })(); },[id]);
+  })(); },[id,token]);
 
   async function pick(tid:string){ setTheme(tid); if(report){ await updateReport(report.id,{theme:tid}); } }
 
+
+  const [dl,setDl]=useState(false);
   async function downloadPdf(){
     setDl(true);
     try{
       const res=await fetch(`/api/pdf?id=${id}`);
-      if(!res.ok){ alert("PDF generation failed. Use Print / Save as PDF instead."); setDl(false); return; }
-      const blob=await res.blob();
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a"); a.href=url; a.download=`ProSight-Report.pdf`; a.click();
-      URL.revokeObjectURL(url);
-    }catch(e){ alert("PDF generation failed. Use Print / Save as PDF instead."); }
+      if(!res.ok){ const j=await res.json().catch(()=>({})); alert("PDF failed: "+(j.error||res.status)+". Use Save as PDF / Print instead."); setDl(false); return; }
+      const blob=await res.blob(); const url=URL.createObjectURL(blob);
+      const a=document.createElement("a"); a.href=url; a.download="ProSight-Report.pdf"; a.click(); URL.revokeObjectURL(url);
+    }catch(e:any){ alert("PDF failed. Use Save as PDF / Print instead."); }
     setDl(false);
   }
 
-  if(!ready) return <div style={{padding:40,fontFamily:"Inter,sans-serif",color:"#667"}}>Preparing report…</div>;
+  if(!ready) return <div style={{padding:40,fontFamily:"Inter,sans-serif",color:"#667"}}>Preparing reportâ€¦</div>;
   if(!report) return <div style={{padding:40}}>Report not found.</div>;
 
   return (
@@ -61,12 +67,13 @@ export default function PrintReport(){
             </button>
           ))}
         </div>
-        <button onClick={downloadPdf} disabled={dl} style={{background:"#2f9d6b",color:"#fff",border:0,padding:"8px 16px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13}}>{dl?"Generating…":"Download PDF"}</button>
+        <button onClick={downloadPdf} disabled={dl} style={{background:"#2f9d6b",color:"#fff",border:0,padding:"8px 16px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13}}>{dl?"Generatingâ€¦":"Download PDF"}</button>
         <button onClick={()=>window.print()} style={{background:"#c98a4b",color:"#0d1420",border:0,padding:"8px 16px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13}}>Print</button>
       </div>}
-      <div style={{padding:"18px 0"}}>
+      <div className="rv-shell" style={{padding:"18px 0"}}>
         <ReportView report={report} urls={urls} themeId={theme}/>
       </div>
     </div>
   );
 }
+

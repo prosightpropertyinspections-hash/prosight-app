@@ -1,14 +1,27 @@
-"use client";
+﻿"use client";
+import { useEffect } from "react";
 import type { Report } from "@/lib/types";
 import { buildModel, GRADE_DESC, coverImage } from "@/lib/report-model";
 import { getTheme, THEME_FONT_HREF, ThemeTokens } from "@/lib/themes";
 
-function fmtDate(iso:string|null){ if(!iso)return "—"; return new Date(iso+"T00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}); }
+function fmtDate(iso:string|null){ if(!iso)return "â€”"; return new Date(iso+"T00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}); }
 
 function Logo({ dark, height=48 }:{ dark?:boolean; height?:number }){
-  // Real ProSight logo. White version on dark backgrounds, full-color on light — no plate/box.
+  // Real ProSight logo. White version on dark backgrounds, full-color on light â€” no plate/box.
   return <img src={dark?"/logo-ondark.svg":"/logo.svg"} alt="ProSight Property Inspections" style={{height,display:"block",width:"auto"}}/>;
 }
+
+/* Every page is a hard 8.5x11 box. Nothing may grow past it â€” growing past it is
+   what pushed the bottom strip of each page onto its own sheet in print. */
+const PAGE_BOX:React.CSSProperties = {
+  position:"relative", width:"8.5in", height:"11in", overflow:"hidden",
+  margin:"0 auto 16px", boxSizing:"border-box",
+};
+
+/* Flexible filler used on covers: soaks up whatever height is left over so the
+   fixed blocks above and below always land inside the 11in box. */
+const FILL:React.CSSProperties = { flex:"1 1 0", minHeight:0, display:"flex", overflow:"hidden" };
+const FILL_IMG:React.CSSProperties = { width:"100%", height:"100%", objectFit:"cover" };
 
 export default function ReportView({ report, urls, themeId }:{ report:Report; urls:Record<string,string>; themeId?:string|null; }){
   const t = getTheme(themeId);
@@ -16,9 +29,28 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
   const cover = coverImage(report, urls, M.allF);
   const reportNo = report.report_no || `PSPI-${(report.id||"").slice(0,8).toUpperCase()}`;
 
+  // Dev helper: warns in the console if any page's content is taller than the
+  // sheet, so an overflow never silently becomes a clipped or spilled page again.
+  useEffect(()=>{
+    const id = setTimeout(()=>{
+      document.querySelectorAll(".rv-page").forEach((p,i)=>{
+        const el = p as HTMLElement;
+        const over = el.scrollHeight - el.clientHeight;
+        if(over > 1) console.warn(`[rv] page ${i+1} overflows its sheet by ${over}px â€” it will clip in print.`);
+      });
+    }, 1500);
+    return ()=>clearTimeout(id);
+  }, [report, themeId]);
+
   const pageBase:React.CSSProperties = {
-    position:"relative", width:"8.5in", minHeight:"11in", margin:"0 auto 16px",
+    ...PAGE_BOX,
     background:t.pageBg, color:t.ink, padding:"46px 54px 64px",
+    fontFamily:t.bodyFont,
+  };
+
+  const coverBase:React.CSSProperties = {
+    ...PAGE_BOX,
+    display:"flex", flexDirection:"column",
     fontFamily:t.bodyFont,
   };
 
@@ -29,24 +61,42 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
         @page { size: letter; margin: 0; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing:border-box; }
         html, body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        .rv-page{ box-shadow:0 2px 16px rgba(0,0,0,.14); box-sizing:border-box; min-height:11in; }
+        .rv-page{ box-shadow:0 2px 16px rgba(0,0,0,.14); box-sizing:border-box; width:8.5in; height:11in; overflow:hidden; }
         @media print {
           .noprint{ display:none !important; }
-          .rv-page{ box-shadow:none !important; margin:0 !important; page-break-after:always; }
-          .rv-page:last-child{ page-break-after:auto; }
+          html, body { margin:0 !important; padding:0 !important; }
+          .rv-shell{ padding:0 !important; background:#fff !important; min-height:0 !important; }
+          .rv-page{
+            box-shadow:none !important;
+            margin:0 !important;
+            width:8.5in !important;
+            /* 10.98in not 11in: Chrome rounds sub-pixel, and a box exactly the
+               height of the sheet spills a hairline onto the next one. */
+            height:10.98in !important;
+            max-height:10.98in !important;
+            min-height:0 !important;
+            overflow:hidden !important;
+            page-break-after:auto;
+            break-inside:avoid;
+          }
+          /* Break BEFORE each page except the first. Using :first-child here does
+             not work â€” the first child of the wrapper is the <link> tag, not the
+             cover â€” so this sibling rule is used instead. */
+          .rv-page{ page-break-before:auto; }
+          .rv-page + .rv-page{ page-break-before:always; }
         }
         .rv-foot{ position:absolute; bottom:26px; left:54px; right:54px; display:flex; justify-content:space-between; font-size:8.5px; }
       `}</style>
 
-      {t.coverStyle==="monograph" && <MonographCover t={t} report={report} cover={cover} M={M} reportNo={reportNo}/>}
-      {t.coverStyle==="obsidian"  && <ObsidianCover  t={t} report={report} cover={cover} M={M} reportNo={reportNo}/>}
-      {t.coverStyle==="warrant"   && <WarrantCover   t={t} report={report} cover={cover} M={M} reportNo={reportNo}/>}
-      {t.coverStyle==="vanguard"  && <VanguardCover  t={t} report={report} cover={cover} M={M} reportNo={reportNo}/>}
-      {t.coverStyle==="terra"     && <TerraCover     t={t} report={report} cover={cover} M={M} reportNo={reportNo}/>}
-      {t.coverStyle==="noir"      && <NoirCover      t={t} report={report} cover={cover} M={M} reportNo={reportNo}/>}
-      {t.coverStyle==="aurora"    && <AuroraCover    t={t} report={report} cover={cover} M={M} reportNo={reportNo}/>}
-      {t.coverStyle==="prestige"  && <PrestigeCover  t={t} report={report} cover={cover} M={M} reportNo={reportNo}/>}
-      {t.coverStyle==="blueprint" && <BlueprintCover t={t} report={report} cover={cover} M={M} reportNo={reportNo}/>}
+      {t.coverStyle==="monograph" && <MonographCover t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}
+      {t.coverStyle==="obsidian"  && <ObsidianCover  t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}
+      {t.coverStyle==="warrant"   && <WarrantCover   t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}
+      {t.coverStyle==="vanguard"  && <VanguardCover  t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}
+      {t.coverStyle==="terra"     && <TerraCover     t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}
+      {t.coverStyle==="noir"      && <NoirCover      t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}
+      {t.coverStyle==="aurora"    && <AuroraCover    t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}
+      {t.coverStyle==="prestige"  && <PrestigeCover  t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}
+      {t.coverStyle==="blueprint" && <BlueprintCover t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}
 
       <AboutPage t={t} report={report} pageBase={pageBase} reportNo={reportNo} pageNo={2}/>
       <GradePage t={t} report={report} M={M} pageBase={pageBase} reportNo={reportNo} pageNo={3}/>
@@ -65,32 +115,38 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
 function Foot({t,reportNo,address,p}:{t:ThemeTokens;reportNo:string;address:string;p:number}){
   const onDark = t.pageBg==="#0e0f12";
   return <div className="rv-foot" style={{color:t.sub,borderTop:`1px solid ${t.hair}`,paddingTop:8,alignItems:"center"}}>
-    <span style={{fontSize:8.5}}>PROSIGHT PROPERTY INSPECTIONS · {reportNo} · {address} · Page {p}</span>
+    <span style={{fontSize:8.5}}>PROSIGHT PROPERTY INSPECTIONS Â· {reportNo} Â· {address} Â· Page {p}</span>
     <img src={onDark?"/logo-ondark.svg":"/logo.svg"} alt="" style={{height:54,width:"auto",opacity:.9}}/>
   </div>;
 }
 
-/* ---------------- COVERS ---------------- */
+/* ---------------- COVERS ----------------
+   Every cover is a flex column inside a hard 11in box. The image block carries
+   flex:1 so it absorbs leftover space; the blocks above and below it keep their
+   fixed sizes. Previously these used min-height:11in and simply grew past the
+   sheet, which is what put the bottom strip on a page of its own.            */
 
-function MonographCover({t,report,cover,M,reportNo}:any){
+function MonographCover({t,report,cover,M,reportNo,base}:any){
   return (
-    <div className="rv-page" style={{position:"relative",width:"8.5in",minHeight:"11in",margin:"0 auto 16px",background:t.coverBg,color:t.coverInk,fontFamily:t.bodyFont,padding:"0"}}>
-      <div style={{padding:"64px 64px 0"}}>
+    <div className="rv-page" style={{...base,background:t.coverBg,color:t.coverInk,padding:0}}>
+      <div style={{padding:"64px 64px 0",flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderBottom:`1px solid ${t.accent}`,paddingBottom:18}}>
           <Logo height={160}/>
           <div style={{fontSize:10,letterSpacing:2,color:t.sub}}>{reportNo}</div>
         </div>
       </div>
-      <div style={{padding:"48px 64px 0"}}>
+      <div style={{padding:"48px 64px 0",flexShrink:0}}>
         <div style={{fontFamily:t.bodyFont,fontSize:11,letterSpacing:4,color:t.accent,textTransform:"uppercase",marginBottom:20}}>Confidential Property Inspection</div>
-        <div style={{fontFamily:t.displayFont,fontSize:52,lineHeight:1.05,fontWeight:600,letterSpacing:"-.5px",maxWidth:"9in"}}>{report.address||"Property address"}</div>
+        <div style={{fontFamily:t.displayFont,fontSize:52,lineHeight:1.05,fontWeight:600,letterSpacing:"-.5px"}}>{report.address||"Property address"}</div>
       </div>
-      {cover && <div style={{margin:"40px 64px 0"}}><img src={cover} style={{width:"100%",height:340,objectFit:"cover"}}/></div>}
-      <div style={{padding:"36px 64px",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+      <div style={{...FILL,margin:"40px 64px 0"}}>
+        {cover && <img src={cover} style={FILL_IMG}/>}
+      </div>
+      <div style={{padding:"36px 64px",display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexShrink:0}}>
         <div>
           <div style={{fontSize:10,letterSpacing:2,color:t.sub,textTransform:"uppercase"}}>Prepared for</div>
-          <div style={{fontFamily:t.displayFont,fontSize:26,fontWeight:600,marginTop:2}}>{report.client||"—"}</div>
-          <div style={{fontSize:12,color:t.sub,marginTop:10}}>{fmtDate(report.inspection_date)} · Inspector {report.inspector||"—"}</div>
+          <div style={{fontFamily:t.displayFont,fontSize:26,fontWeight:600,marginTop:2}}>{report.client||"â€”"}</div>
+          <div style={{fontSize:12,color:t.sub,marginTop:10}}>{fmtDate(report.inspection_date)} Â· Inspector {report.inspector||"â€”"}</div>
         </div>
         <div style={{textAlign:"center"}}>
           <div style={{width:96,height:96,borderRadius:"50%",border:`2px solid ${t.accent}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
@@ -103,17 +159,19 @@ function MonographCover({t,report,cover,M,reportNo}:any){
   );
 }
 
-function ObsidianCover({t,report,cover,M,reportNo}:any){
+function ObsidianCover({t,report,cover,M,reportNo,base}:any){
   return (
-    <div className="rv-page" style={{position:"relative",width:"8.5in",minHeight:"11in",margin:"0 auto 16px",background:t.coverBg,color:t.coverInk,fontFamily:t.bodyFont,padding:"54px 54px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:44}}>
+    <div className="rv-page" style={{...base,background:t.coverBg,color:t.coverInk,padding:"54px 54px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:44,flexShrink:0}}>
         <Logo dark height={144}/>
         <div style={{fontFamily:t.displayFont,fontSize:10,letterSpacing:2,color:t.sub}}>{reportNo}</div>
       </div>
-      <div style={{fontFamily:t.displayFont,fontSize:13,letterSpacing:5,color:t.coverAccent,textTransform:"uppercase",marginBottom:16}}>Inspection Report</div>
-      <div style={{fontFamily:t.displayFont,fontSize:44,fontWeight:700,lineHeight:1.08,letterSpacing:"-1px",marginBottom:30}}>{report.address||"Property address"}</div>
-      {cover && <img src={cover} style={{width:"100%",height:300,objectFit:"cover",borderRadius:t.radius,marginBottom:30}}/>}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:t.hair,border:`1px solid ${t.hair}`,borderRadius:t.radius,overflow:"hidden"}}>
+      <div style={{fontFamily:t.displayFont,fontSize:13,letterSpacing:5,color:t.coverAccent,textTransform:"uppercase",marginBottom:16,flexShrink:0}}>Inspection Report</div>
+      <div style={{fontFamily:t.displayFont,fontSize:44,fontWeight:700,lineHeight:1.08,letterSpacing:"-1px",marginBottom:30,flexShrink:0}}>{report.address||"Property address"}</div>
+      <div style={{...FILL,marginBottom:30,borderRadius:t.radius}}>
+        {cover && <img src={cover} style={{...FILL_IMG,borderRadius:t.radius}}/>}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:1,background:t.hair,border:`1px solid ${t.hair}`,borderRadius:t.radius,overflow:"hidden",flexShrink:0}}>
         {[["Systems",M.withF.length,t.coverInk],["Priority",M.cP,t.sev.priority.c],["Grade",M.overall,t.gradeColor[M.overall]]].map((x:any,i:number)=>(
           <div key={i} style={{background:t.coverBg,padding:"22px 18px"}}>
             <div style={{fontFamily:t.displayFont,fontSize:34,fontWeight:700,color:x[2]}}>{x[1]}</div>
@@ -121,32 +179,34 @@ function ObsidianCover({t,report,cover,M,reportNo}:any){
           </div>
         ))}
       </div>
-      <div style={{marginTop:34,display:"flex",justifyContent:"space-between",alignItems:"flex-end",borderTop:`1px solid ${t.hair}`,paddingTop:22}}>
+      <div style={{marginTop:34,display:"flex",justifyContent:"space-between",alignItems:"flex-end",borderTop:`1px solid ${t.hair}`,paddingTop:22,flexShrink:0}}>
         <div><div style={{fontSize:9,letterSpacing:2,color:t.sub,textTransform:"uppercase"}}>Prepared exclusively for</div>
-        <div style={{fontSize:22,fontWeight:600,marginTop:3}}>{report.client||"—"}</div></div>
-        <div style={{fontSize:12,color:t.sub,textAlign:"right"}}>{fmtDate(report.inspection_date)}<br/>Inspector {report.inspector||"—"}</div>
+        <div style={{fontSize:22,fontWeight:600,marginTop:3}}>{report.client||"â€”"}</div></div>
+        <div style={{fontSize:12,color:t.sub,textAlign:"right"}}>{fmtDate(report.inspection_date)}<br/>Inspector {report.inspector||"â€”"}</div>
       </div>
     </div>
   );
 }
 
-function WarrantCover({t,report,cover,M,reportNo}:any){
+function WarrantCover({t,report,cover,M,reportNo,base}:any){
   return (
-    <div className="rv-page" style={{position:"relative",width:"8.5in",minHeight:"11in",margin:"0 auto 16px",background:t.pageBg,color:t.ink,fontFamily:t.bodyFont,padding:0}}>
-      <div style={{background:t.coverBg,color:t.coverInk,padding:"40px 54px"}}>
+    <div className="rv-page" style={{...base,background:t.pageBg,color:t.ink,padding:0}}>
+      <div style={{background:t.coverBg,color:t.coverInk,padding:"40px 54px",flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <Logo dark height={152}/>
           <div style={{textAlign:"right",fontSize:10,color:"#9fb4c9"}}>REPORT NO.<br/><span style={{color:t.coverInk,fontWeight:700,fontSize:12}}>{reportNo}</span></div>
         </div>
       </div>
-      <div style={{height:4,background:t.coverAccent}}/>
-      <div style={{padding:"46px 54px 0"}}>
+      <div style={{height:4,background:t.coverAccent,flexShrink:0}}/>
+      <div style={{padding:"46px 54px 0",flexShrink:0}}>
         <div style={{fontSize:11,letterSpacing:3,color:t.accent2,textTransform:"uppercase",marginBottom:14}}>Confidential Inspection Report</div>
         <div style={{fontFamily:t.displayFont,fontSize:34,fontWeight:700,lineHeight:1.15}}>{report.address||"Property address"}</div>
       </div>
-      {cover && <div style={{margin:"32px 54px 0"}}><img src={cover} style={{width:"100%",height:300,objectFit:"cover",borderRadius:t.radius,border:`1px solid ${t.hair}`}}/></div>}
-      <div style={{margin:"32px 54px 0",border:`1px solid ${t.hair}`,borderRadius:t.radius}}>
-        {[["Client",report.client||"—"],["Inspection date",fmtDate(report.inspection_date)],["Inspector",report.inspector||"—"],["Overall grade",`${M.overall} — ${GRADE_DESC[M.overall].split(" — ")[0]}`]].map((r:any,i:number,a:any)=>(
+      <div style={{...FILL,margin:"32px 54px 0"}}>
+        {cover && <img src={cover} style={{...FILL_IMG,borderRadius:t.radius,border:`1px solid ${t.hair}`}}/>}
+      </div>
+      <div style={{margin:"32px 54px 54px",border:`1px solid ${t.hair}`,borderRadius:t.radius,flexShrink:0}}>
+        {[["Client",report.client||"â€”"],["Inspection date",fmtDate(report.inspection_date)],["Inspector",report.inspector||"â€”"],["Overall grade",`${M.overall} â€” ${GRADE_DESC[M.overall].split(" â€” ")[0]}`]].map((r:any,i:number,a:any)=>(
           <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"12px 16px",borderBottom:i<a.length-1?`1px solid ${t.hair}`:"none",fontSize:13}}>
             <span style={{color:t.sub}}>{r[0]}</span><span style={{fontWeight:700}}>{r[1]}</span>
           </div>
@@ -156,21 +216,22 @@ function WarrantCover({t,report,cover,M,reportNo}:any){
   );
 }
 
-
-function VanguardCover({t,report,cover,M,reportNo}:any){
+function VanguardCover({t,report,cover,M,reportNo,base}:any){
   return (
-    <div className="rv-page" style={{position:"relative",width:"8.5in",minHeight:"11in",margin:"0 auto 16px",background:t.coverBg,color:t.coverInk,fontFamily:t.bodyFont,padding:0}}>
-      <div style={{padding:"48px 54px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <div className="rv-page" style={{...base,background:t.coverBg,color:t.coverInk,padding:0}}>
+      <div style={{padding:"48px 54px 0",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
         <Logo dark height={144}/>
         <div style={{fontSize:11,color:t.coverAccent,fontWeight:700}}>{reportNo}</div>
       </div>
-      <div style={{padding:"70px 54px 0"}}>
+      <div style={{padding:"70px 54px 0",flexShrink:0}}>
         <div style={{width:60,height:6,background:t.coverAccent,marginBottom:26}}/>
-        <div style={{fontFamily:t.displayFont,fontSize:64,fontWeight:700,lineHeight:.98,letterSpacing:"-2px",maxWidth:"8in"}}>{report.address||"Property address"}</div>
+        <div style={{fontFamily:t.displayFont,fontSize:64,fontWeight:700,lineHeight:.98,letterSpacing:"-2px"}}>{report.address||"Property address"}</div>
         <div style={{fontFamily:t.displayFont,fontSize:15,letterSpacing:6,color:t.coverAccent,textTransform:"uppercase",marginTop:24}}>Inspection Report</div>
       </div>
-      {cover && <div style={{margin:"44px 0 0"}}><img src={cover} style={{width:"100%",height:320,objectFit:"cover"}}/></div>}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr"}}>
+      <div style={{...FILL,margin:"44px 0 0"}}>
+        {cover && <img src={cover} style={FILL_IMG}/>}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",flexShrink:0}}>
         {[["Systems",M.withF.length],["Priority",M.cP],["Grade",M.overall]].map((x:any,i:number)=>(
           <div key={i} style={{padding:"28px 54px",borderTop:`6px solid ${i===2?t.gradeColor[M.overall]:t.coverAccent}`,borderRight:i<2?`1px solid rgba(255,255,255,.12)`:"none"}}>
             <div style={{fontFamily:t.displayFont,fontSize:46,fontWeight:700,lineHeight:1}}>{x[1]}</div>
@@ -178,31 +239,33 @@ function VanguardCover({t,report,cover,M,reportNo}:any){
           </div>
         ))}
       </div>
-      <div style={{padding:"26px 54px",display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-        <div style={{fontSize:20,fontWeight:700}}>{report.client||"—"}</div>
-        <div style={{fontSize:12,color:"rgba(255,255,255,.6)"}}>{fmtDate(report.inspection_date)} · {report.inspector||"—"}</div>
+      <div style={{padding:"26px 54px",display:"flex",justifyContent:"space-between",alignItems:"baseline",flexShrink:0}}>
+        <div style={{fontSize:20,fontWeight:700}}>{report.client||"â€”"}</div>
+        <div style={{fontSize:12,color:"rgba(255,255,255,.6)"}}>{fmtDate(report.inspection_date)} Â· {report.inspector||"â€”"}</div>
       </div>
     </div>
   );
 }
 
-function TerraCover({t,report,cover,M,reportNo}:any){
+function TerraCover({t,report,cover,M,reportNo,base}:any){
   return (
-    <div className="rv-page" style={{position:"relative",width:"8.5in",minHeight:"11in",margin:"0 auto 16px",background:t.coverBg,color:t.coverInk,fontFamily:t.bodyFont,padding:"56px 56px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:40,paddingBottom:20,borderBottom:`1px solid ${t.coverAccent}`}}>
+    <div className="rv-page" style={{...base,background:t.coverBg,color:t.coverInk,padding:"56px 56px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:40,paddingBottom:20,borderBottom:`1px solid ${t.coverAccent}`,flexShrink:0}}>
         <Logo dark height={152}/>
         <div style={{fontSize:10,letterSpacing:2,color:t.coverAccent}}>{reportNo}</div>
       </div>
-      <div style={{fontSize:11,letterSpacing:4,color:t.coverAccent,textTransform:"uppercase",marginBottom:18}}>Confidential Property Inspection</div>
-      <div style={{fontFamily:t.displayFont,fontSize:46,fontWeight:600,lineHeight:1.1,letterSpacing:"-.5px"}}>{report.address||"Property address"}</div>
-      {cover && <img src={cover} style={{width:"100%",height:320,objectFit:"cover",borderRadius:12,margin:"34px 0"}}/>}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+      <div style={{fontSize:11,letterSpacing:4,color:t.coverAccent,textTransform:"uppercase",marginBottom:18,flexShrink:0}}>Confidential Property Inspection</div>
+      <div style={{fontFamily:t.displayFont,fontSize:46,fontWeight:600,lineHeight:1.1,letterSpacing:"-.5px",flexShrink:0}}>{report.address||"Property address"}</div>
+      <div style={{...FILL,margin:"34px 0"}}>
+        {cover && <img src={cover} style={{...FILL_IMG,borderRadius:12}}/>}
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexShrink:0}}>
         <div>
           <div style={{fontSize:10,letterSpacing:2,color:t.coverAccent,textTransform:"uppercase"}}>Prepared for</div>
-          <div style={{fontFamily:t.displayFont,fontSize:28,fontWeight:600,marginTop:2}}>{report.client||"—"}</div>
-          <div style={{fontSize:12,color:"rgba(247,240,230,.7)",marginTop:8}}>{fmtDate(report.inspection_date)} · Inspector {report.inspector||"—"}</div>
+          <div style={{fontFamily:t.displayFont,fontSize:28,fontWeight:600,marginTop:2}}>{report.client||"â€”"}</div>
+          <div style={{fontSize:12,color:"rgba(247,240,230,.7)",marginTop:8}}>{fmtDate(report.inspection_date)} Â· Inspector {report.inspector||"â€”"}</div>
         </div>
-        <div style={{width:92,height:92,borderRadius:"50%",background:t.coverAccent,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:t.coverBg}}>
+        <div style={{width:92,height:92,borderRadius:"50%",background:t.coverAccent,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:t.coverBg,flexShrink:0}}>
           <div style={{fontFamily:t.displayFont,fontSize:38,fontWeight:700,lineHeight:1}}>{M.overall}</div>
           <div style={{fontSize:7.5,letterSpacing:1.5,textTransform:"uppercase"}}>Overall</div>
         </div>
@@ -211,21 +274,23 @@ function TerraCover({t,report,cover,M,reportNo}:any){
   );
 }
 
-function NoirCover({t,report,cover,M,reportNo}:any){
+function NoirCover({t,report,cover,M,reportNo,base}:any){
   return (
-    <div className="rv-page" style={{position:"relative",width:"8.5in",minHeight:"11in",margin:"0 auto 16px",background:t.coverBg,color:t.coverInk,fontFamily:t.bodyFont,padding:0}}>
-      <div style={{padding:"54px 56px 0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <div className="rv-page" style={{...base,background:t.coverBg,color:t.coverInk,padding:0}}>
+      <div style={{padding:"54px 56px 0",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
         <Logo dark height={140}/>
         <div style={{fontSize:10,letterSpacing:2,color:"rgba(255,255,255,.5)"}}>{reportNo}</div>
       </div>
-      <div style={{padding:"90px 56px 0",textAlign:"center"}}>
+      <div style={{padding:"90px 56px 0",textAlign:"center",flexShrink:0}}>
         <div style={{fontSize:11,letterSpacing:8,textTransform:"uppercase",color:"rgba(255,255,255,.55)",marginBottom:26}}>Inspection Report</div>
         <div style={{fontFamily:t.displayFont,fontSize:50,fontWeight:700,lineHeight:1.1,letterSpacing:"-.5px"}}>{report.address||"Property address"}</div>
         <div style={{width:40,height:1,background:"#fff",margin:"30px auto"}}/>
-        <div style={{fontSize:13,letterSpacing:2,color:"rgba(255,255,255,.8)"}}>{report.client||"—"}</div>
+        <div style={{fontSize:13,letterSpacing:2,color:"rgba(255,255,255,.8)"}}>{report.client||"â€”"}</div>
       </div>
-      {cover && <div style={{margin:"56px 0 0"}}><img src={cover} style={{width:"100%",height:330,objectFit:"cover",filter:"grayscale(1) contrast(1.05)"}}/></div>}
-      <div style={{display:"flex",justifyContent:"center",gap:0,borderTop:"1px solid rgba(255,255,255,.18)"}}>
+      <div style={{...FILL,margin:"56px 0 0"}}>
+        {cover && <img src={cover} style={{...FILL_IMG,filter:"grayscale(1) contrast(1.05)"}}/>}
+      </div>
+      <div style={{display:"flex",justifyContent:"center",gap:0,borderTop:"1px solid rgba(255,255,255,.18)",flexShrink:0}}>
         {[["Systems",M.withF.length],["Priority",M.cP],["Grade",M.overall]].map((x:any,i:number)=>(
           <div key={i} style={{flex:1,padding:"26px 0",textAlign:"center",borderRight:i<2?"1px solid rgba(255,255,255,.18)":"none"}}>
             <div style={{fontFamily:t.displayFont,fontSize:34,fontWeight:700}}>{x[1]}</div>
@@ -237,21 +302,20 @@ function NoirCover({t,report,cover,M,reportNo}:any){
   );
 }
 
-
-function AuroraCover({t,report,cover,M,reportNo}:any){
+function AuroraCover({t,report,cover,M,reportNo,base}:any){
   return (
-    <div className="rv-page" style={{position:"relative",width:"8.5in",minHeight:"11in",margin:"0 auto 16px",background:t.coverBg,color:t.coverInk,fontFamily:t.bodyFont,padding:0,overflow:"hidden"}}>
+    <div className="rv-page" style={{...base,background:t.coverBg,color:t.coverInk,padding:0,display:"block"}}>
       {cover && <img src={cover} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>}
       <div style={{position:"absolute",inset:0,background:cover?"linear-gradient(180deg, rgba(11,13,24,.35) 0%, rgba(11,13,24,.15) 40%, rgba(11,13,24,.92) 100%)":"linear-gradient(135deg,#1a1145,#0b0d18)"}}/>
       <div style={{position:"absolute",top:"-20%",right:"-10%",width:"70%",height:"55%",background:"radial-gradient(circle, rgba(109,74,255,.55), transparent 70%)",filter:"blur(20px)"}}/>
       <div style={{position:"absolute",top:"10%",left:"-15%",width:"55%",height:"45%",background:"radial-gradient(circle, rgba(255,77,141,.4), transparent 70%)",filter:"blur(20px)"}}/>
-      <div style={{position:"relative",minHeight:"11in",display:"flex",flexDirection:"column",padding:"54px 54px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div style={{position:"relative",height:"100%",display:"flex",flexDirection:"column",padding:"54px 54px",boxSizing:"border-box"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
           <Logo dark height={144}/>
           <div style={{fontSize:10,letterSpacing:2,color:"rgba(255,255,255,.7)"}}>{reportNo}</div>
         </div>
-        <div style={{flex:1}}/>
-        <div>
+        <div style={{flex:"1 1 0",minHeight:0}}/>
+        <div style={{flexShrink:0}}>
           <div style={{fontFamily:t.displayFont,fontSize:14,letterSpacing:6,color:t.coverAccent,textTransform:"uppercase",marginBottom:16}}>Inspection Report</div>
           <div style={{fontFamily:t.displayFont,fontSize:58,fontWeight:700,lineHeight:1.02,letterSpacing:"-1.5px",textShadow:"0 2px 30px rgba(0,0,0,.4)"}}>{report.address||"Property address"}</div>
           <div style={{display:"flex",gap:24,marginTop:26,alignItems:"center"}}>
@@ -261,7 +325,7 @@ function AuroraCover({t,report,cover,M,reportNo}:any){
             <div style={{width:1,height:44,background:"rgba(255,255,255,.25)"}}/>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
               <div style={{width:60,height:60,borderRadius:"50%",background:`radial-gradient(circle at 30% 30%, ${t.gradeColor[M.overall]}, ${t.gradeColor[M.overall]}bb)`,boxShadow:`0 0 30px ${t.gradeColor[M.overall]}88`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:t.displayFont,fontSize:28,fontWeight:700}}>{M.overall}</div>
-              <div><div style={{fontSize:12,fontWeight:600}}>Overall Grade</div><div style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>{report.client||"—"}</div></div>
+              <div><div style={{fontSize:12,fontWeight:600}}>Overall Grade</div><div style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>{report.client||"â€”"}</div></div>
             </div>
           </div>
         </div>
@@ -270,52 +334,56 @@ function AuroraCover({t,report,cover,M,reportNo}:any){
   );
 }
 
-function PrestigeCover({t,report,cover,M,reportNo}:any){
+function PrestigeCover({t,report,cover,M,reportNo,base}:any){
   return (
-    <div className="rv-page" style={{position:"relative",width:"8.5in",minHeight:"11in",margin:"0 auto 16px",background:t.coverBg,color:t.coverInk,fontFamily:t.bodyFont,padding:"0",overflow:"hidden"}}>
+    <div className="rv-page" style={{...base,background:t.coverBg,color:t.coverInk,padding:0,display:"block"}}>
       <div style={{position:"absolute",top:"-15%",left:"50%",transform:"translateX(-50%)",width:"90%",height:"50%",background:"radial-gradient(ellipse, rgba(212,175,95,.22), transparent 70%)",filter:"blur(10px)"}}/>
-      <div style={{position:"relative",padding:"56px 60px"}}>
-        <div style={{textAlign:"center",borderBottom:`1px solid ${t.coverAccent}66`,paddingBottom:22,marginBottom:34}}>
+      <div style={{position:"relative",height:"100%",display:"flex",flexDirection:"column",padding:"56px 60px",boxSizing:"border-box"}}>
+        <div style={{textAlign:"center",borderBottom:`1px solid ${t.coverAccent}66`,paddingBottom:22,marginBottom:34,flexShrink:0}}>
           <Logo dark height={176}/>
-          <div style={{fontSize:9,letterSpacing:4,color:t.coverAccent,textTransform:"uppercase",marginTop:6}}>Established Excellence · AdjusterFlow L.L.C.</div>
+          <div style={{fontSize:9,letterSpacing:4,color:t.coverAccent,textTransform:"uppercase",marginTop:6}}>Established Excellence Â· AdjusterFlow L.L.C.</div>
         </div>
-        <div style={{textAlign:"center"}}>
+        <div style={{textAlign:"center",flexShrink:0}}>
           <div style={{fontSize:10,letterSpacing:5,color:t.coverAccent,textTransform:"uppercase",marginBottom:20}}>Confidential Inspection Report</div>
           <div style={{fontFamily:t.displayFont,fontSize:46,fontWeight:600,lineHeight:1.1,letterSpacing:"-.5px"}}>{report.address||"Property address"}</div>
         </div>
-        {cover && <div style={{margin:"34px 0",position:"relative"}}>
-          <img src={cover} style={{width:"100%",height:300,objectFit:"cover",borderRadius:t.radius}}/>
-          <div style={{position:"absolute",inset:0,borderRadius:t.radius,boxShadow:`inset 0 0 0 1px ${t.coverAccent}55, inset 0 -60px 60px -30px rgba(14,42,31,.7)`}}/>
-        </div>}
-        <div style={{textAlign:"center",marginTop:10}}>
+        <div style={{...FILL,margin:"34px 0",position:"relative"}}>
+          {cover && <>
+            <img src={cover} style={{...FILL_IMG,borderRadius:t.radius}}/>
+            <div style={{position:"absolute",inset:0,borderRadius:t.radius,boxShadow:`inset 0 0 0 1px ${t.coverAccent}55, inset 0 -60px 60px -30px rgba(14,42,31,.7)`}}/>
+          </>}
+        </div>
+        <div style={{textAlign:"center",flexShrink:0}}>
           <div style={{width:110,height:110,margin:"0 auto",borderRadius:"50%",background:`radial-gradient(circle at 35% 30%, ${t.coverAccent}, #a8823f)`,boxShadow:`0 0 40px ${t.coverAccent}66`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:t.coverBg}}>
             <div style={{fontFamily:t.displayFont,fontSize:46,fontWeight:700,lineHeight:1}}>{M.overall}</div>
             <div style={{fontSize:7.5,letterSpacing:2,textTransform:"uppercase"}}>Overall</div>
           </div>
-          <div style={{fontFamily:t.displayFont,fontSize:22,fontWeight:600,marginTop:22}}>{report.client||"—"}</div>
-          <div style={{fontSize:11,color:"rgba(244,239,224,.65)",marginTop:6}}>{fmtDate(report.inspection_date)} · Inspector {report.inspector||"—"} · {reportNo}</div>
+          <div style={{fontFamily:t.displayFont,fontSize:22,fontWeight:600,marginTop:22}}>{report.client||"â€”"}</div>
+          <div style={{fontSize:11,color:"rgba(244,239,224,.65)",marginTop:6}}>{fmtDate(report.inspection_date)} Â· Inspector {report.inspector||"â€”"} Â· {reportNo}</div>
         </div>
       </div>
     </div>
   );
 }
 
-function BlueprintCover({t,report,cover,M,reportNo}:any){
+function BlueprintCover({t,report,cover,M,reportNo,base}:any){
   const grid=`linear-gradient(rgba(77,141,255,.10) 1px, transparent 1px), linear-gradient(90deg, rgba(77,141,255,.10) 1px, transparent 1px)`;
   return (
-    <div className="rv-page" style={{position:"relative",width:"8.5in",minHeight:"11in",margin:"0 auto 16px",background:t.coverBg,color:t.coverInk,fontFamily:t.bodyFont,padding:0,overflow:"hidden"}}>
+    <div className="rv-page" style={{...base,background:t.coverBg,color:t.coverInk,padding:0,display:"block"}}>
       <div style={{position:"absolute",inset:0,backgroundImage:grid,backgroundSize:"32px 32px"}}/>
       <div style={{position:"absolute",bottom:"-10%",right:"-5%",width:"60%",height:"45%",background:"radial-gradient(circle, rgba(0,194,209,.35), transparent 70%)",filter:"blur(24px)"}}/>
-      <div style={{position:"relative",padding:"54px 56px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:40}}>
+      <div style={{position:"relative",height:"100%",display:"flex",flexDirection:"column",padding:"54px 56px",boxSizing:"border-box"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:40,flexShrink:0}}>
           <Logo dark height={144}/>
           <div style={{fontSize:10,letterSpacing:2,color:t.coverAccent,fontFamily:"monospace"}}>{reportNo}</div>
         </div>
-        <div style={{fontSize:12,letterSpacing:5,color:t.coverAccent,textTransform:"uppercase",marginBottom:18,fontFamily:"monospace"}}>◦ Inspection Report</div>
-        <div style={{fontFamily:t.displayFont,fontSize:48,fontWeight:700,lineHeight:1.05,letterSpacing:"-1px"}}>{report.address||"Property address"}</div>
-        <div style={{height:2,width:120,background:`linear-gradient(90deg,${t.coverAccent},transparent)`,margin:"22px 0",boxShadow:`0 0 12px ${t.coverAccent}`}}/>
-        {cover && <img src={cover} style={{width:"100%",height:290,objectFit:"cover",borderRadius:t.radius,border:`1px solid ${t.coverAccent}44`}}/>}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginTop:26}}>
+        <div style={{fontSize:12,letterSpacing:5,color:t.coverAccent,textTransform:"uppercase",marginBottom:18,fontFamily:"monospace",flexShrink:0}}>â—¦ Inspection Report</div>
+        <div style={{fontFamily:t.displayFont,fontSize:48,fontWeight:700,lineHeight:1.05,letterSpacing:"-1px",flexShrink:0}}>{report.address||"Property address"}</div>
+        <div style={{height:2,width:120,background:`linear-gradient(90deg,${t.coverAccent},transparent)`,margin:"22px 0",boxShadow:`0 0 12px ${t.coverAccent}`,flexShrink:0}}/>
+        <div style={{...FILL}}>
+          {cover && <img src={cover} style={{...FILL_IMG,borderRadius:t.radius,border:`1px solid ${t.coverAccent}44`}}/>}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginTop:26,flexShrink:0}}>
           {[["Systems",M.withF.length,t.coverInk],["Priority",M.cP,t.sev.priority.c],["Grade",M.overall,t.gradeColor[M.overall]]].map((x:any,i:number)=>(
             <div key={i} style={{border:`1px solid ${t.coverAccent}33`,borderRadius:t.radius,padding:"16px 18px",background:"rgba(77,141,255,.06)"}}>
               <div style={{fontFamily:t.displayFont,fontSize:32,fontWeight:700,color:x[2]}}>{x[1]}</div>
@@ -323,7 +391,7 @@ function BlueprintCover({t,report,cover,M,reportNo}:any){
             </div>
           ))}
         </div>
-        <div style={{marginTop:26,fontSize:12,color:"rgba(234,240,255,.7)"}}>Prepared for <strong style={{color:t.coverInk}}>{report.client||"—"}</strong> · {fmtDate(report.inspection_date)}</div>
+        <div style={{marginTop:26,fontSize:12,color:"rgba(234,240,255,.7)",flexShrink:0}}>Prepared for <strong style={{color:t.coverInk}}>{report.client||"â€”"}</strong> Â· {fmtDate(report.inspection_date)}</div>
       </div>
     </div>
   );
@@ -333,29 +401,29 @@ function AboutPage({t,report,pageBase,reportNo,pageNo}:any){
   const lay=t.layout;
   const cardBg = t.pageBg==="#0e0f12" ? "#15171b" : (lay==="technical" ? "transparent" : "#f6f5f1");
   const pill = (title:string, body:string) => (
-    <div style={{marginBottom:16}}>
+    <div style={{marginBottom:14}}>
       <div style={{fontFamily:t.displayFont,fontSize:14,fontWeight:700,color:t.accent,marginBottom:5}}>{title}</div>
-      <div style={{fontSize:11.5,color:t.sub,lineHeight:1.7}}>{body}</div>
+      <div style={{fontSize:11.5,color:t.sub,lineHeight:1.65}}>{body}</div>
     </div>
   );
   return (
     <div className="rv-page" style={pageBase}>
       <SecTitle t={t} title="About This Inspection" sub="Standards of practice & our commitment to you"/>
-      <div style={{background:cardBg,borderRadius:t.radius,padding:22,margin:"8px 0 22px",border:lay==="technical"?`1px solid ${t.hair}`:(lay==="band"?`1px solid ${t.hair}`:"none")}}>
+      <div style={{background:cardBg,borderRadius:t.radius,padding:18,margin:"8px 0 18px",border:lay==="technical"?`1px solid ${t.hair}`:(lay==="band"?`1px solid ${t.hair}`:"none")}}>
         <div style={{fontFamily:t.displayFont,fontSize:16,fontWeight:700,marginBottom:8}}>Welcome, {report.client||"valued client"}.</div>
-        <div style={{fontSize:11.5,color:t.sub,lineHeight:1.75}}>Thank you for choosing ProSight Property Inspections — a locally owned, InterNACHI-certified inspection company based in Dearborn Heights, Michigan. This report presents a thorough, unbiased evaluation of the readily accessible systems and components of your property at {report.address||"the inspected address"}. Our goal is simple — to give you a clear, honest understanding of the home's condition so you can make confident, well-informed decisions.</div>
+        <div style={{fontSize:11.5,color:t.sub,lineHeight:1.7}}>Thank you for choosing ProSight Property Inspections â€” a locally owned, InterNACHI-certified inspection company based in Dearborn Heights, Michigan. This report presents a thorough, unbiased evaluation of the readily accessible systems and components of your property at {report.address||"the inspected address"}. Our goal is simple â€” to give you a clear, honest understanding of the home's condition so you can make confident, well-informed decisions.</div>
       </div>
 
       {pill("Performed to InterNACHI Standards of Practice",
-        "This inspection was performed in general accordance with the Standards of Practice of the International Association of Certified Home Inspectors (InterNACHI) — the industry's most respected benchmark. Our inspector is InterNACHI-certified (InterNACHI ID NACHI26020705) and bound by its Code of Ethics, ensuring an objective assessment carried out solely in your interest.")}
+        "This inspection was performed in general accordance with the Standards of Practice of the International Association of Certified Home Inspectors (InterNACHI) â€” the industry's most respected benchmark. Our inspector is InterNACHI-certified (InterNACHI ID NACHI26020705) and bound by its Code of Ethics, ensuring an objective assessment carried out solely in your interest.")}
 
       {pill("What This Inspection Covers",
-        "A visual, non-invasive examination of the major visible and readily accessible systems and components — including the roof, exterior and structure, foundation, interior rooms, and installed mechanical, electrical, and plumbing systems — documented with photographs and clear, plain-language findings. Each observation is graded by priority so you know what needs attention now versus what to simply monitor.")}
+        "A visual, non-invasive examination of the major visible and readily accessible systems and components â€” including the roof, exterior and structure, foundation, interior rooms, and installed mechanical, electrical, and plumbing systems â€” documented with photographs and clear, plain-language findings. Each observation is graded by priority so you know what needs attention now versus what to simply monitor.")}
 
       {pill("Our Commitment to You",
-        "We inspect every property as if it were our own — with diligence, integrity, and a genuine commitment to your safety and peace of mind. Findings are reported factually and without exaggeration. Where a condition warrants further evaluation by a licensed specialist, we say so plainly, so nothing is left to guesswork before you move forward.")}
+        "We inspect every property as if it were our own â€” with diligence, integrity, and a genuine commitment to your safety and peace of mind. Findings are reported factually and without exaggeration. Where a condition warrants further evaluation by a licensed specialist, we say so plainly, so nothing is left to guesswork before you move forward.")}
 
-      <div style={{display:"flex",gap:12,marginTop:22}}>
+      <div style={{display:"flex",gap:12,marginTop:18}}>
         {[["InterNACHI","Certified & Insured"],["Photo-Documented","Every Finding"],["Plain-Language","Clear Grading"]].map((x:any,i:number)=>(
           <div key={i} style={{flex:1,textAlign:"center",border:`1px solid ${t.hair}`,borderRadius:t.radius,padding:"14px 8px"}}>
             <div style={{fontFamily:t.displayFont,fontSize:13,fontWeight:700,color:t.accent}}>{x[0]}</div>
@@ -435,8 +503,8 @@ function GradePage({t,report,M,pageBase,reportNo,pageNo}:any){
         <tbody>{M.graded.map((g:any)=>(
           <tr key={g.section.id}>
             <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,fontSize:11,fontWeight:600}}>{g.section.name}</td>
-            <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,fontSize:11,textAlign:"center",color:g.counts.priority?t.sev.priority.c:t.sub}}>{g.counts.priority||"—"}</td>
-            <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,fontSize:11,textAlign:"center",color:g.counts.monitor?t.sev.monitor.c:t.sub}}>{g.counts.monitor||"—"}</td>
+            <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,fontSize:11,textAlign:"center",color:g.counts.priority?t.sev.priority.c:t.sub}}>{g.counts.priority||"â€”"}</td>
+            <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,fontSize:11,textAlign:"center",color:g.counts.monitor?t.sev.monitor.c:t.sub}}>{g.counts.monitor||"â€”"}</td>
             <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,textAlign:"right"}}><span style={{fontSize:10,fontWeight:700,color:t.gradeColor[g.grade]}}>{g.grade}</span></td>
           </tr>
         ))}</tbody>
@@ -471,7 +539,7 @@ function ExecPage({t,report,M,pageBase,reportNo,pageNo}:any){
       {M.monitor.length>0 && <div style={{fontFamily:t.displayFont,fontSize:15,fontWeight:700,margin:"18px 0 10px"}}>Monitor &amp; Maintenance</div>}
       {M.monitor.slice(0,7).map((x:any,i:number)=>(
         <div key={i} style={{display:"flex",gap:9,padding:"7px 0",borderBottom:`1px solid ${t.hair}`,fontSize:11.5,color:t.sub}}>
-          <span style={{color:t.sev.monitor.c}}>◆</span><span>{x.f.ai_text||x.f.note}</span>
+          <span style={{color:t.sev.monitor.c}}>â—†</span><span>{x.f.ai_text||x.f.note}</span>
         </div>
       ))}
       {M.priority.length===0 && M.monitor.length===0 && <div style={{fontSize:12,color:t.sub}}>No priority or maintenance items identified. See sections for detail.</div>}
@@ -501,7 +569,7 @@ function SectionHeader({t,s,g,idx}:any){
   );
   if(lay==="minimal") return (
     <div style={{marginBottom:20,textAlign:"center",paddingBottom:16,borderBottom:`1px solid ${t.hair}`}}>
-      <div style={{fontSize:10,letterSpacing:4,color:t.sub,textTransform:"uppercase",marginBottom:6}}>Section {String(idx+1).padStart(2,"0")} — Grade {g.grade}</div>
+      <div style={{fontSize:10,letterSpacing:4,color:t.sub,textTransform:"uppercase",marginBottom:6}}>Section {String(idx+1).padStart(2,"0")} â€” Grade {g.grade}</div>
       <div style={{fontFamily:t.displayFont,fontSize:24,fontWeight:700}}>{s.name}</div>
       <div style={{fontSize:11,letterSpacing:1,color:t.sub,marginTop:2}}>{s.subtitle||s.grp}</div>
     </div>
@@ -585,24 +653,24 @@ function ScopePage({t,report,pageBase,reportNo,pageNo}:any){
         <div style={{background:boxBg,borderRadius:t.radius,padding:22,margin:"8px 0 22px",border:lay==="band"?`1px solid ${t.hair}`:"none"}}>{disclaimer}</div>
       )}
       <div style={{display:"flex",gap:40,marginTop:28,fontSize:11.5,color:t.ink}}>
-        <div style={{flex:1,borderTop:`1px solid ${t.ink}`,paddingTop:8}}>Inspector — {report.inspector||"—"}, Certified Property Inspector{` · InterNACHI ID ${report.nachi_id||"NACHI26020705"}`}</div>
-        <div style={{flex:1,borderTop:`1px solid ${t.ink}`,paddingTop:8}}>Date — {fmtDate(report.inspection_date)}</div>
+        <div style={{flex:1,borderTop:`1px solid ${t.ink}`,paddingTop:8}}>Inspector â€” {report.inspector||"â€”"}, Certified Property Inspector{` Â· InterNACHI ID ${report.nachi_id||"NACHI26020705"}`}</div>
+        <div style={{flex:1,borderTop:`1px solid ${t.ink}`,paddingTop:8}}>Date â€” {fmtDate(report.inspection_date)}</div>
       </div>
       {lay==="band" ? (
         <div style={{background:t.accent,color:"#fff",borderRadius:t.radius,padding:22,textAlign:"center",marginTop:34}}>
           <div style={{fontFamily:t.displayFont,fontSize:18,fontWeight:700}}>Thank you for choosing ProSight Property Inspections</div>
-          <div style={{fontSize:11,opacity:.85,marginTop:5}}>AdjusterFlow L.L.C. · Dearborn Heights, MI · Reference {reportNo}</div>
+          <div style={{fontSize:11,opacity:.85,marginTop:5}}>AdjusterFlow L.L.C. Â· Dearborn Heights, MI Â· Reference {reportNo}</div>
         </div>
       ) : lay==="minimal" ? (
         <div style={{textAlign:"center",marginTop:44}}>
           <div style={{width:40,height:1,background:t.ink,margin:"0 auto 18px"}}/>
           <div style={{fontFamily:t.displayFont,fontSize:17,fontWeight:700,letterSpacing:1}}>Thank you</div>
-          <div style={{fontSize:11,color:t.sub,marginTop:6,letterSpacing:1}}>ProSight Property Inspections · {reportNo}</div>
+          <div style={{fontSize:11,color:t.sub,marginTop:6,letterSpacing:1}}>ProSight Property Inspections Â· {reportNo}</div>
         </div>
       ) : (
         <div style={{textAlign:"center",marginTop:34,paddingTop:22,borderTop:`1px solid ${t.hair}`}}>
           <div style={{fontFamily:t.displayFont,fontSize:17,fontWeight:700,color:t.accent}}>Thank you for choosing ProSight Property Inspections</div>
-          <div style={{fontSize:11,color:t.sub,marginTop:5}}>AdjusterFlow L.L.C. · Dearborn Heights, MI · Reference {reportNo}</div>
+          <div style={{fontSize:11,color:t.sub,marginTop:5}}>AdjusterFlow L.L.C. Â· Dearborn Heights, MI Â· Reference {reportNo}</div>
         </div>
       )}
       <Foot t={t} reportNo={reportNo} address={report.address} p={pageNo}/>
@@ -616,3 +684,4 @@ function SecTitle({t,title,sub}:{t:ThemeTokens;title:string;sub:string}){
     <div style={{fontSize:12,color:t.sub,marginLeft:15,marginTop:3}}>{sub}</div>
   </div>;
 }
+
