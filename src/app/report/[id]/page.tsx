@@ -16,6 +16,54 @@ const SEV_META:Record<Severity,{w:string;c:string;bg:string}>={
   satisfactory:{w:"Satisfactory",c:"var(--ok)",bg:"var(--ok-tint)"},
 };
 
+/* Shrink a photo in the browser before sending it to the AI route.
+   A phone/drone shot is 5-10MB; base64 adds ~33% on top, which blows past the
+   request body limit (Vercel caps at 4.5MB and will not budge) and comes back
+   as a plain-text 413 that res.json() chokes on. Anthropic downscales anything
+   over 1568px on the long edge anyway, so nothing is lost by doing it here. */
+const AI_MAX_EDGE = 1568;
+
+async function toAnalyzablePayload(blob: Blob): Promise<{ data:string; mediaType:string }> {
+  const bitmap = await createImageBitmap(blob);
+  const scale = Math.min(1, AI_MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if(!ctx) throw new Error("Could not read the image.");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close?.();
+
+  // Step the quality down until it comfortably fits the request budget.
+  for(const q of [0.85, 0.7, 0.55]){
+    const out: Blob | null = await new Promise(res => canvas.toBlob(res, "image/jpeg", q));
+    if(!out) continue;
+    if(out.size < 3_000_000 || q === 0.55){
+      const data = await new Promise<string>((resolve, reject) => {
+        const rd = new FileReader();
+        rd.onload = () => resolve((rd.result as string).split(",")[1]);
+        rd.onerror = () => reject(new Error("Could not read the image."));
+        rd.readAsDataURL(out);
+      });
+      return { data, mediaType: "image/jpeg" };
+    }
+  }
+  throw new Error("Image is too large to analyze.");
+}
+
+/* Error routes return plain text for 413/504, so res.json() throws on the raw
+   body and hides the real cause. Read as text, then parse. */
+async function readJson(res: Response){
+  const raw = await res.text();
+  try { return JSON.parse(raw); }
+  catch {
+    if(res.status === 413) return { error: "That photo is too large to analyze. Try a smaller image." };
+    return { error: `Server error ${res.status}. ${raw.slice(0,120)}` };
+  }
+}
+
 function Editor(){
   const { id } = useParams<{id:string}>();
   const sb = createClient();
@@ -83,7 +131,7 @@ function Editor(){
             </div>
             <p style={{margin:"0 0 20px",fontSize:13,color:"var(--muted)"}}>{section.subtitle||"Add findings, photos, and notes for this area."}</p>
             {(section.findings||[]).map(f=>(
-              <FindingCard key={f.id} finding={f} report={report} onChange={()=>setReport({...report!})} />
+              <FindingCard key={f.id} finding={f} report={report} area={section.name} onChange={()=>setReport({...report!})} />
             ))}
             <button className="btn btn-ghost" onClick={addFinding} style={{marginTop:6}}>+ Add finding</button>
           </>}
@@ -103,7 +151,7 @@ function CoverPhoto({report,onChange}:{report:Report;onChange:()=>void}){
     setBusy(true);
     const fd=new FormData(); fd.append("file",file); fd.append("reportId",report.id);
     const res=await fetch("/api/upload",{method:"POST",body:fd});
-    const j=await res.json();
+    const j=await readJson(res);
     if(j.path){ await sb.from("reports").update({cover_photo:j.path}).eq("id",report.id); report.cover_photo=j.path; onChange(); }
     else alert(j.error||"Upload failed");
     setBusy(false);
@@ -135,11 +183,11 @@ function ShareButton({report}:{report:Report}){
   async function ensure(){
     setBusy(true);
     const res=await fetch("/api/share",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reportId:report.id})});
-    const j=await res.json(); setShare(j.share); setBusy(false);
+    const j=await readJson(res); setShare(j.share); setBusy(false);
   }
   function openPanel(){ setOpen(true); if(!share) ensure(); }
   const link = share ? `${location.origin}/view/${share.code}` : "";
-  async function regen(){ setBusy(true); const res=await fetch("/api/share",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({reportId:report.id,regenerate:true})}); const j=await res.json(); setShare(j.share); setBusy(false); }
+  async function regen(){ setBusy(true); const res=await fetch("/api/share",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({reportId:report.id,regenerate:true})}); const j=await readJson(res); setShare(j.share); setBusy(false); }
   function copy(text:string,what:string){ navigator.clipboard.writeText(text); setCopied(what); setTimeout(()=>setCopied(""),1500); }
   return (
     <>
@@ -185,7 +233,7 @@ function ShareButton({report}:{report:Report}){
   );
 }
 
-function FindingCard({finding,report,onChange}:{finding:Finding;report:Report;onChange:()=>void}){
+function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Report;area?:string;onChange:()=>void}){
   const sb=createClient();
   const [f,setF]=useState(finding);
   const [busy,setBusy]=useState(false);
@@ -200,7 +248,7 @@ function FindingCard({finding,report,onChange}:{finding:Finding;report:Report;on
     setBusy(true);
     const fd=new FormData(); fd.append("file",file); fd.append("reportId",report.id);
     const res=await fetch("/api/upload",{method:"POST",body:fd});
-    const j=await res.json();
+    const j=await readJson(res);
     if(j.path){ await save({photo_path:j.path}); } else { alert(j.error||"Upload failed"); }
     setBusy(false);
   }
@@ -208,18 +256,26 @@ function FindingCard({finding,report,onChange}:{finding:Finding;report:Report;on
   async function rewrite(){
     setBusy(true);
     try{
+      let j:any;
       if(f.photo_path && photoUrl){
         const blob=await (await fetch(photoUrl)).blob();
-        const b64=await new Promise<string>(r=>{const rd=new FileReader();rd.onload=()=>r((rd.result as string).split(",")[1]);rd.readAsDataURL(blob);});
-        const res=await fetch("/api/analyze-photo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({imageBase64:b64,mediaType:blob.type,note:f.note,title:f.title,severity:f.severity})});
-        const j=await res.json();
-        if(j.text) await save({ai_text:j.text, annotations:j.annotations||[]}); else alert(j.error||"AI error");
+        const { data, mediaType } = await toAnalyzablePayload(blob);
+        const res=await fetch("/api/analyze-photo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({imageBase64:data,mediaType,note:f.note,area})});
+        j=await readJson(res);
       } else {
-        const res=await fetch("/api/rewrite",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({note:f.note,title:f.title,severity:f.severity})});
-        const j=await res.json();
-        if(j.text) await save({ai_text:j.text}); else alert(j.error||"AI error");
+        const res=await fetch("/api/rewrite",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({note:f.note,area})});
+        j=await readJson(res);
       }
-    }catch(e:any){ alert("AI unavailable: "+e.message); }
+      if(j?.text){
+        const patch:Partial<Finding>={ ai_text:j.text };
+        if(j.annotations) (patch as any).annotations=j.annotations;
+        // Severity is re-decided on every rewrite, as requested.
+        if(j.severity) patch.severity=j.severity as Severity;
+        // A title you typed yourself is kept; the model only fills a blank one.
+        if(j.title && !f.title?.trim()) patch.title=j.title;
+        await save(patch);
+      } else alert(j?.error||"AI error");
+    }catch(e:any){ alert("AI unavailable: "+(e?.message||e)); }
     setBusy(false);
   }
 
@@ -233,7 +289,7 @@ function FindingCard({finding,report,onChange}:{finding:Finding;report:Report;on
             <label style={{width:96,height:72,border:"1px dashed var(--line-2)",borderRadius:6,display:"grid",placeItems:"center",cursor:"pointer",color:"var(--faint)",fontSize:22}}>+<input type="file" accept="image/*" style={{display:"none"}} onChange={onPhoto}/></label>}
         </div>
         <div style={{flex:1,minWidth:0}}>
-          <input className="input" value={f.title} onChange={e=>setF({...f,title:e.target.value})} onBlur={e=>save({title:e.target.value})} placeholder="Finding title (e.g. Chimney & Flashing)" style={{fontWeight:600,marginBottom:6}}/>
+          <input className="input" value={f.title} onChange={e=>setF({...f,title:e.target.value})} onBlur={e=>save({title:e.target.value})} placeholder="Finding title (e.g. Chimney &amp; Flashing)" style={{fontWeight:600,marginBottom:6}}/>
           <textarea className="input" value={f.note} onChange={e=>setF({...f,note:e.target.value})} onBlur={e=>save({note:e.target.value})} placeholder="Rough field note — type it how you'd say it out loud" style={{minHeight:56,resize:"vertical"}}/>
           <div style={{display:"flex",gap:6,marginTop:8}}>
             {(["priority","monitor","satisfactory"] as Severity[]).map(s=>{const m=SEV_META[s];const on=f.severity===s;return(

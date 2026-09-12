@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { getReport, updateReport } from "@/lib/data";
@@ -52,7 +52,7 @@ export default function PrintReport(){
     setDl(false);
   }
 
-  if(!ready) return <div style={{padding:40,fontFamily:"Inter,sans-serif",color:"#667"}}>Preparing reportâ€¦</div>;
+  if(!ready) return <div style={{padding:40,fontFamily:"Inter,sans-serif",color:"#667"}}>Preparing report…</div>;
   if(!report) return <div style={{padding:40}}>Report not found.</div>;
 
   return (
@@ -67,7 +67,7 @@ export default function PrintReport(){
             </button>
           ))}
         </div>
-        <button onClick={downloadPdf} disabled={dl} style={{background:"#2f9d6b",color:"#fff",border:0,padding:"8px 16px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13}}>{dl?"Generatingâ€¦":"Download PDF"}</button>
+        <button onClick={downloadPdf} disabled={dl} style={{background:"#2f9d6b",color:"#fff",border:0,padding:"8px 16px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13}}>{dl?"Generating…":"Download PDF"}</button>
         <button onClick={()=>window.print()} style={{background:"#c98a4b",color:"#0d1420",border:0,padding:"8px 16px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13}}>Print</button>
       </div>}
       <div className="rv-shell" style={{padding:"18px 0"}}>
@@ -76,4 +76,3 @@ export default function PrintReport(){
     </div>
   );
 }
-

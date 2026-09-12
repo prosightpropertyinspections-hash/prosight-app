@@ -1,17 +1,17 @@
-﻿"use client";
+"use client";
 import { useEffect } from "react";
 import type { Report } from "@/lib/types";
 import { buildModel, GRADE_DESC, coverImage } from "@/lib/report-model";
 import { getTheme, THEME_FONT_HREF, ThemeTokens } from "@/lib/themes";
 
-function fmtDate(iso:string|null){ if(!iso)return "â€”"; return new Date(iso+"T00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}); }
+function fmtDate(iso:string|null){ if(!iso)return "—"; return new Date(iso+"T00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}); }
 
 function Logo({ dark, height=48 }:{ dark?:boolean; height?:number }){
-  // Real ProSight logo. White version on dark backgrounds, full-color on light â€” no plate/box.
+  // Real ProSight logo. White version on dark backgrounds, full-color on light — no plate/box.
   return <img src={dark?"/logo-ondark.svg":"/logo.svg"} alt="ProSight Property Inspections" style={{height,display:"block",width:"auto"}}/>;
 }
 
-/* Every page is a hard 8.5x11 box. Nothing may grow past it â€” growing past it is
+/* Every page is a hard 8.5x11 box. Nothing may grow past it — growing past it is
    what pushed the bottom strip of each page onto its own sheet in print. */
 const PAGE_BOX:React.CSSProperties = {
   position:"relative", width:"8.5in", height:"11in", overflow:"hidden",
@@ -36,7 +36,7 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
       document.querySelectorAll(".rv-page").forEach((p,i)=>{
         const el = p as HTMLElement;
         const over = el.scrollHeight - el.clientHeight;
-        if(over > 1) console.warn(`[rv] page ${i+1} overflows its sheet by ${over}px â€” it will clip in print.`);
+        if(over > 1) console.warn(`[rv] page ${i+1} overflows its sheet by ${over}px — it will clip in print.`);
       });
     }, 1500);
     return ()=>clearTimeout(id);
@@ -80,8 +80,8 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
             break-inside:avoid;
           }
           /* Break BEFORE each page except the first. Using :first-child here does
-             not work â€” the first child of the wrapper is the <link> tag, not the
-             cover â€” so this sibling rule is used instead. */
+             not work — the first child of the wrapper is the <link> tag, not the
+             cover — so this sibling rule is used instead. */
           .rv-page{ page-break-before:auto; }
           .rv-page + .rv-page{ page-break-before:always; }
         }
@@ -115,7 +115,7 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
 function Foot({t,reportNo,address,p}:{t:ThemeTokens;reportNo:string;address:string;p:number}){
   const onDark = t.pageBg==="#0e0f12";
   return <div className="rv-foot" style={{color:t.sub,borderTop:`1px solid ${t.hair}`,paddingTop:8,alignItems:"center"}}>
-    <span style={{fontSize:8.5}}>PROSIGHT PROPERTY INSPECTIONS Â· {reportNo} Â· {address} Â· Page {p}</span>
+    <span style={{fontSize:8.5}}>PROSIGHT PROPERTY INSPECTIONS · {reportNo} · {address} · Page {p}</span>
     <img src={onDark?"/logo-ondark.svg":"/logo.svg"} alt="" style={{height:54,width:"auto",opacity:.9}}/>
   </div>;
 }
@@ -145,8 +145,8 @@ function MonographCover({t,report,cover,M,reportNo,base}:any){
       <div style={{padding:"36px 64px",display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexShrink:0}}>
         <div>
           <div style={{fontSize:10,letterSpacing:2,color:t.sub,textTransform:"uppercase"}}>Prepared for</div>
-          <div style={{fontFamily:t.displayFont,fontSize:26,fontWeight:600,marginTop:2}}>{report.client||"â€”"}</div>
-          <div style={{fontSize:12,color:t.sub,marginTop:10}}>{fmtDate(report.inspection_date)} Â· Inspector {report.inspector||"â€”"}</div>
+          <div style={{fontFamily:t.displayFont,fontSize:26,fontWeight:600,marginTop:2}}>{report.client||"—"}</div>
+          <div style={{fontSize:12,color:t.sub,marginTop:10}}>{fmtDate(report.inspection_date)} · Inspector {report.inspector||"—"}</div>
         </div>
         <div style={{textAlign:"center"}}>
           <div style={{width:96,height:96,borderRadius:"50%",border:`2px solid ${t.accent}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
@@ -181,8 +181,8 @@ function ObsidianCover({t,report,cover,M,reportNo,base}:any){
       </div>
       <div style={{marginTop:34,display:"flex",justifyContent:"space-between",alignItems:"flex-end",borderTop:`1px solid ${t.hair}`,paddingTop:22,flexShrink:0}}>
         <div><div style={{fontSize:9,letterSpacing:2,color:t.sub,textTransform:"uppercase"}}>Prepared exclusively for</div>
-        <div style={{fontSize:22,fontWeight:600,marginTop:3}}>{report.client||"â€”"}</div></div>
-        <div style={{fontSize:12,color:t.sub,textAlign:"right"}}>{fmtDate(report.inspection_date)}<br/>Inspector {report.inspector||"â€”"}</div>
+        <div style={{fontSize:22,fontWeight:600,marginTop:3}}>{report.client||"—"}</div></div>
+        <div style={{fontSize:12,color:t.sub,textAlign:"right"}}>{fmtDate(report.inspection_date)}<br/>Inspector {report.inspector||"—"}</div>
       </div>
     </div>
   );
@@ -206,7 +206,7 @@ function WarrantCover({t,report,cover,M,reportNo,base}:any){
         {cover && <img src={cover} style={{...FILL_IMG,borderRadius:t.radius,border:`1px solid ${t.hair}`}}/>}
       </div>
       <div style={{margin:"32px 54px 54px",border:`1px solid ${t.hair}`,borderRadius:t.radius,flexShrink:0}}>
-        {[["Client",report.client||"â€”"],["Inspection date",fmtDate(report.inspection_date)],["Inspector",report.inspector||"â€”"],["Overall grade",`${M.overall} â€” ${GRADE_DESC[M.overall].split(" â€” ")[0]}`]].map((r:any,i:number,a:any)=>(
+        {[["Client",report.client||"—"],["Inspection date",fmtDate(report.inspection_date)],["Inspector",report.inspector||"—"],["Overall grade",`${M.overall} — ${GRADE_DESC[M.overall].split(" — ")[0]}`]].map((r:any,i:number,a:any)=>(
           <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"12px 16px",borderBottom:i<a.length-1?`1px solid ${t.hair}`:"none",fontSize:13}}>
             <span style={{color:t.sub}}>{r[0]}</span><span style={{fontWeight:700}}>{r[1]}</span>
           </div>
@@ -240,8 +240,8 @@ function VanguardCover({t,report,cover,M,reportNo,base}:any){
         ))}
       </div>
       <div style={{padding:"26px 54px",display:"flex",justifyContent:"space-between",alignItems:"baseline",flexShrink:0}}>
-        <div style={{fontSize:20,fontWeight:700}}>{report.client||"â€”"}</div>
-        <div style={{fontSize:12,color:"rgba(255,255,255,.6)"}}>{fmtDate(report.inspection_date)} Â· {report.inspector||"â€”"}</div>
+        <div style={{fontSize:20,fontWeight:700}}>{report.client||"—"}</div>
+        <div style={{fontSize:12,color:"rgba(255,255,255,.6)"}}>{fmtDate(report.inspection_date)} · {report.inspector||"—"}</div>
       </div>
     </div>
   );
@@ -262,8 +262,8 @@ function TerraCover({t,report,cover,M,reportNo,base}:any){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexShrink:0}}>
         <div>
           <div style={{fontSize:10,letterSpacing:2,color:t.coverAccent,textTransform:"uppercase"}}>Prepared for</div>
-          <div style={{fontFamily:t.displayFont,fontSize:28,fontWeight:600,marginTop:2}}>{report.client||"â€”"}</div>
-          <div style={{fontSize:12,color:"rgba(247,240,230,.7)",marginTop:8}}>{fmtDate(report.inspection_date)} Â· Inspector {report.inspector||"â€”"}</div>
+          <div style={{fontFamily:t.displayFont,fontSize:28,fontWeight:600,marginTop:2}}>{report.client||"—"}</div>
+          <div style={{fontSize:12,color:"rgba(247,240,230,.7)",marginTop:8}}>{fmtDate(report.inspection_date)} · Inspector {report.inspector||"—"}</div>
         </div>
         <div style={{width:92,height:92,borderRadius:"50%",background:t.coverAccent,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:t.coverBg,flexShrink:0}}>
           <div style={{fontFamily:t.displayFont,fontSize:38,fontWeight:700,lineHeight:1}}>{M.overall}</div>
@@ -285,7 +285,7 @@ function NoirCover({t,report,cover,M,reportNo,base}:any){
         <div style={{fontSize:11,letterSpacing:8,textTransform:"uppercase",color:"rgba(255,255,255,.55)",marginBottom:26}}>Inspection Report</div>
         <div style={{fontFamily:t.displayFont,fontSize:50,fontWeight:700,lineHeight:1.1,letterSpacing:"-.5px"}}>{report.address||"Property address"}</div>
         <div style={{width:40,height:1,background:"#fff",margin:"30px auto"}}/>
-        <div style={{fontSize:13,letterSpacing:2,color:"rgba(255,255,255,.8)"}}>{report.client||"â€”"}</div>
+        <div style={{fontSize:13,letterSpacing:2,color:"rgba(255,255,255,.8)"}}>{report.client||"—"}</div>
       </div>
       <div style={{...FILL,margin:"56px 0 0"}}>
         {cover && <img src={cover} style={{...FILL_IMG,filter:"grayscale(1) contrast(1.05)"}}/>}
@@ -325,7 +325,7 @@ function AuroraCover({t,report,cover,M,reportNo,base}:any){
             <div style={{width:1,height:44,background:"rgba(255,255,255,.25)"}}/>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
               <div style={{width:60,height:60,borderRadius:"50%",background:`radial-gradient(circle at 30% 30%, ${t.gradeColor[M.overall]}, ${t.gradeColor[M.overall]}bb)`,boxShadow:`0 0 30px ${t.gradeColor[M.overall]}88`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:t.displayFont,fontSize:28,fontWeight:700}}>{M.overall}</div>
-              <div><div style={{fontSize:12,fontWeight:600}}>Overall Grade</div><div style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>{report.client||"â€”"}</div></div>
+              <div><div style={{fontSize:12,fontWeight:600}}>Overall Grade</div><div style={{fontSize:11,color:"rgba(255,255,255,.6)"}}>{report.client||"—"}</div></div>
             </div>
           </div>
         </div>
@@ -341,7 +341,7 @@ function PrestigeCover({t,report,cover,M,reportNo,base}:any){
       <div style={{position:"relative",height:"100%",display:"flex",flexDirection:"column",padding:"56px 60px",boxSizing:"border-box"}}>
         <div style={{textAlign:"center",borderBottom:`1px solid ${t.coverAccent}66`,paddingBottom:22,marginBottom:34,flexShrink:0}}>
           <Logo dark height={176}/>
-          <div style={{fontSize:9,letterSpacing:4,color:t.coverAccent,textTransform:"uppercase",marginTop:6}}>Established Excellence Â· AdjusterFlow L.L.C.</div>
+          <div style={{fontSize:9,letterSpacing:4,color:t.coverAccent,textTransform:"uppercase",marginTop:6}}>Established Excellence · AdjusterFlow L.L.C.</div>
         </div>
         <div style={{textAlign:"center",flexShrink:0}}>
           <div style={{fontSize:10,letterSpacing:5,color:t.coverAccent,textTransform:"uppercase",marginBottom:20}}>Confidential Inspection Report</div>
@@ -358,8 +358,8 @@ function PrestigeCover({t,report,cover,M,reportNo,base}:any){
             <div style={{fontFamily:t.displayFont,fontSize:46,fontWeight:700,lineHeight:1}}>{M.overall}</div>
             <div style={{fontSize:7.5,letterSpacing:2,textTransform:"uppercase"}}>Overall</div>
           </div>
-          <div style={{fontFamily:t.displayFont,fontSize:22,fontWeight:600,marginTop:22}}>{report.client||"â€”"}</div>
-          <div style={{fontSize:11,color:"rgba(244,239,224,.65)",marginTop:6}}>{fmtDate(report.inspection_date)} Â· Inspector {report.inspector||"â€”"} Â· {reportNo}</div>
+          <div style={{fontFamily:t.displayFont,fontSize:22,fontWeight:600,marginTop:22}}>{report.client||"—"}</div>
+          <div style={{fontSize:11,color:"rgba(244,239,224,.65)",marginTop:6}}>{fmtDate(report.inspection_date)} · Inspector {report.inspector||"—"} · {reportNo}</div>
         </div>
       </div>
     </div>
@@ -377,7 +377,7 @@ function BlueprintCover({t,report,cover,M,reportNo,base}:any){
           <Logo dark height={144}/>
           <div style={{fontSize:10,letterSpacing:2,color:t.coverAccent,fontFamily:"monospace"}}>{reportNo}</div>
         </div>
-        <div style={{fontSize:12,letterSpacing:5,color:t.coverAccent,textTransform:"uppercase",marginBottom:18,fontFamily:"monospace",flexShrink:0}}>â—¦ Inspection Report</div>
+        <div style={{fontSize:12,letterSpacing:5,color:t.coverAccent,textTransform:"uppercase",marginBottom:18,fontFamily:"monospace",flexShrink:0}}>◦ Inspection Report</div>
         <div style={{fontFamily:t.displayFont,fontSize:48,fontWeight:700,lineHeight:1.05,letterSpacing:"-1px",flexShrink:0}}>{report.address||"Property address"}</div>
         <div style={{height:2,width:120,background:`linear-gradient(90deg,${t.coverAccent},transparent)`,margin:"22px 0",boxShadow:`0 0 12px ${t.coverAccent}`,flexShrink:0}}/>
         <div style={{...FILL}}>
@@ -391,7 +391,7 @@ function BlueprintCover({t,report,cover,M,reportNo,base}:any){
             </div>
           ))}
         </div>
-        <div style={{marginTop:26,fontSize:12,color:"rgba(234,240,255,.7)",flexShrink:0}}>Prepared for <strong style={{color:t.coverInk}}>{report.client||"â€”"}</strong> Â· {fmtDate(report.inspection_date)}</div>
+        <div style={{marginTop:26,fontSize:12,color:"rgba(234,240,255,.7)",flexShrink:0}}>Prepared for <strong style={{color:t.coverInk}}>{report.client||"—"}</strong> · {fmtDate(report.inspection_date)}</div>
       </div>
     </div>
   );
@@ -411,17 +411,17 @@ function AboutPage({t,report,pageBase,reportNo,pageNo}:any){
       <SecTitle t={t} title="About This Inspection" sub="Standards of practice & our commitment to you"/>
       <div style={{background:cardBg,borderRadius:t.radius,padding:18,margin:"8px 0 18px",border:lay==="technical"?`1px solid ${t.hair}`:(lay==="band"?`1px solid ${t.hair}`:"none")}}>
         <div style={{fontFamily:t.displayFont,fontSize:16,fontWeight:700,marginBottom:8}}>Welcome, {report.client||"valued client"}.</div>
-        <div style={{fontSize:11.5,color:t.sub,lineHeight:1.7}}>Thank you for choosing ProSight Property Inspections â€” a locally owned, InterNACHI-certified inspection company based in Dearborn Heights, Michigan. This report presents a thorough, unbiased evaluation of the readily accessible systems and components of your property at {report.address||"the inspected address"}. Our goal is simple â€” to give you a clear, honest understanding of the home's condition so you can make confident, well-informed decisions.</div>
+        <div style={{fontSize:11.5,color:t.sub,lineHeight:1.7}}>Thank you for choosing ProSight Property Inspections — a locally owned, InterNACHI-certified inspection company based in Dearborn Heights, Michigan. This report presents a thorough, unbiased evaluation of the readily accessible systems and components of your property at {report.address||"the inspected address"}. Our goal is simple — to give you a clear, honest understanding of the home's condition so you can make confident, well-informed decisions.</div>
       </div>
 
       {pill("Performed to InterNACHI Standards of Practice",
-        "This inspection was performed in general accordance with the Standards of Practice of the International Association of Certified Home Inspectors (InterNACHI) â€” the industry's most respected benchmark. Our inspector is InterNACHI-certified (InterNACHI ID NACHI26020705) and bound by its Code of Ethics, ensuring an objective assessment carried out solely in your interest.")}
+        "This inspection was performed in general accordance with the Standards of Practice of the International Association of Certified Home Inspectors (InterNACHI) — the industry's most respected benchmark. Our inspector is InterNACHI-certified (InterNACHI ID NACHI26020705) and bound by its Code of Ethics, ensuring an objective assessment carried out solely in your interest.")}
 
       {pill("What This Inspection Covers",
-        "A visual, non-invasive examination of the major visible and readily accessible systems and components â€” including the roof, exterior and structure, foundation, interior rooms, and installed mechanical, electrical, and plumbing systems â€” documented with photographs and clear, plain-language findings. Each observation is graded by priority so you know what needs attention now versus what to simply monitor.")}
+        "A visual, non-invasive examination of the major visible and readily accessible systems and components — including the roof, exterior and structure, foundation, interior rooms, and installed mechanical, electrical, and plumbing systems — documented with photographs and clear, plain-language findings. Each observation is graded by priority so you know what needs attention now versus what to simply monitor.")}
 
       {pill("Our Commitment to You",
-        "We inspect every property as if it were our own â€” with diligence, integrity, and a genuine commitment to your safety and peace of mind. Findings are reported factually and without exaggeration. Where a condition warrants further evaluation by a licensed specialist, we say so plainly, so nothing is left to guesswork before you move forward.")}
+        "We inspect every property as if it were our own — with diligence, integrity, and a genuine commitment to your safety and peace of mind. Findings are reported factually and without exaggeration. Where a condition warrants further evaluation by a licensed specialist, we say so plainly, so nothing is left to guesswork before you move forward.")}
 
       <div style={{display:"flex",gap:12,marginTop:18}}>
         {[["InterNACHI","Certified & Insured"],["Photo-Documented","Every Finding"],["Plain-Language","Clear Grading"]].map((x:any,i:number)=>(
@@ -503,8 +503,8 @@ function GradePage({t,report,M,pageBase,reportNo,pageNo}:any){
         <tbody>{M.graded.map((g:any)=>(
           <tr key={g.section.id}>
             <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,fontSize:11,fontWeight:600}}>{g.section.name}</td>
-            <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,fontSize:11,textAlign:"center",color:g.counts.priority?t.sev.priority.c:t.sub}}>{g.counts.priority||"â€”"}</td>
-            <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,fontSize:11,textAlign:"center",color:g.counts.monitor?t.sev.monitor.c:t.sub}}>{g.counts.monitor||"â€”"}</td>
+            <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,fontSize:11,textAlign:"center",color:g.counts.priority?t.sev.priority.c:t.sub}}>{g.counts.priority||"—"}</td>
+            <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,fontSize:11,textAlign:"center",color:g.counts.monitor?t.sev.monitor.c:t.sub}}>{g.counts.monitor||"—"}</td>
             <td style={{padding:"9px 10px",borderBottom:`1px solid ${t.hair}`,textAlign:"right"}}><span style={{fontSize:10,fontWeight:700,color:t.gradeColor[g.grade]}}>{g.grade}</span></td>
           </tr>
         ))}</tbody>
@@ -539,7 +539,7 @@ function ExecPage({t,report,M,pageBase,reportNo,pageNo}:any){
       {M.monitor.length>0 && <div style={{fontFamily:t.displayFont,fontSize:15,fontWeight:700,margin:"18px 0 10px"}}>Monitor &amp; Maintenance</div>}
       {M.monitor.slice(0,7).map((x:any,i:number)=>(
         <div key={i} style={{display:"flex",gap:9,padding:"7px 0",borderBottom:`1px solid ${t.hair}`,fontSize:11.5,color:t.sub}}>
-          <span style={{color:t.sev.monitor.c}}>â—†</span><span>{x.f.ai_text||x.f.note}</span>
+          <span style={{color:t.sev.monitor.c}}>◆</span><span>{x.f.ai_text||x.f.note}</span>
         </div>
       ))}
       {M.priority.length===0 && M.monitor.length===0 && <div style={{fontSize:12,color:t.sub}}>No priority or maintenance items identified. See sections for detail.</div>}
@@ -569,7 +569,7 @@ function SectionHeader({t,s,g,idx}:any){
   );
   if(lay==="minimal") return (
     <div style={{marginBottom:20,textAlign:"center",paddingBottom:16,borderBottom:`1px solid ${t.hair}`}}>
-      <div style={{fontSize:10,letterSpacing:4,color:t.sub,textTransform:"uppercase",marginBottom:6}}>Section {String(idx+1).padStart(2,"0")} â€” Grade {g.grade}</div>
+      <div style={{fontSize:10,letterSpacing:4,color:t.sub,textTransform:"uppercase",marginBottom:6}}>Section {String(idx+1).padStart(2,"0")} — Grade {g.grade}</div>
       <div style={{fontFamily:t.displayFont,fontSize:24,fontWeight:700}}>{s.name}</div>
       <div style={{fontSize:11,letterSpacing:1,color:t.sub,marginTop:2}}>{s.subtitle||s.grp}</div>
     </div>
@@ -653,24 +653,24 @@ function ScopePage({t,report,pageBase,reportNo,pageNo}:any){
         <div style={{background:boxBg,borderRadius:t.radius,padding:22,margin:"8px 0 22px",border:lay==="band"?`1px solid ${t.hair}`:"none"}}>{disclaimer}</div>
       )}
       <div style={{display:"flex",gap:40,marginTop:28,fontSize:11.5,color:t.ink}}>
-        <div style={{flex:1,borderTop:`1px solid ${t.ink}`,paddingTop:8}}>Inspector â€” {report.inspector||"â€”"}, Certified Property Inspector{` Â· InterNACHI ID ${report.nachi_id||"NACHI26020705"}`}</div>
-        <div style={{flex:1,borderTop:`1px solid ${t.ink}`,paddingTop:8}}>Date â€” {fmtDate(report.inspection_date)}</div>
+        <div style={{flex:1,borderTop:`1px solid ${t.ink}`,paddingTop:8}}>Inspector — {report.inspector||"—"}, Certified Property Inspector{` · InterNACHI ID ${report.nachi_id||"NACHI26020705"}`}</div>
+        <div style={{flex:1,borderTop:`1px solid ${t.ink}`,paddingTop:8}}>Date — {fmtDate(report.inspection_date)}</div>
       </div>
       {lay==="band" ? (
         <div style={{background:t.accent,color:"#fff",borderRadius:t.radius,padding:22,textAlign:"center",marginTop:34}}>
           <div style={{fontFamily:t.displayFont,fontSize:18,fontWeight:700}}>Thank you for choosing ProSight Property Inspections</div>
-          <div style={{fontSize:11,opacity:.85,marginTop:5}}>AdjusterFlow L.L.C. Â· Dearborn Heights, MI Â· Reference {reportNo}</div>
+          <div style={{fontSize:11,opacity:.85,marginTop:5}}>AdjusterFlow L.L.C. · Dearborn Heights, MI · Reference {reportNo}</div>
         </div>
       ) : lay==="minimal" ? (
         <div style={{textAlign:"center",marginTop:44}}>
           <div style={{width:40,height:1,background:t.ink,margin:"0 auto 18px"}}/>
           <div style={{fontFamily:t.displayFont,fontSize:17,fontWeight:700,letterSpacing:1}}>Thank you</div>
-          <div style={{fontSize:11,color:t.sub,marginTop:6,letterSpacing:1}}>ProSight Property Inspections Â· {reportNo}</div>
+          <div style={{fontSize:11,color:t.sub,marginTop:6,letterSpacing:1}}>ProSight Property Inspections · {reportNo}</div>
         </div>
       ) : (
         <div style={{textAlign:"center",marginTop:34,paddingTop:22,borderTop:`1px solid ${t.hair}`}}>
           <div style={{fontFamily:t.displayFont,fontSize:17,fontWeight:700,color:t.accent}}>Thank you for choosing ProSight Property Inspections</div>
-          <div style={{fontSize:11,color:t.sub,marginTop:5}}>AdjusterFlow L.L.C. Â· Dearborn Heights, MI Â· Reference {reportNo}</div>
+          <div style={{fontSize:11,color:t.sub,marginTop:5}}>AdjusterFlow L.L.C. · Dearborn Heights, MI · Reference {reportNo}</div>
         </div>
       )}
       <Foot t={t} reportNo={reportNo} address={report.address} p={pageNo}/>
@@ -684,4 +684,3 @@ function SecTitle({t,title,sub}:{t:ThemeTokens;title:string;sub:string}){
     <div style={{fontSize:12,color:t.sub,marginLeft:15,marginTop:3}}>{sub}</div>
   </div>;
 }
-
