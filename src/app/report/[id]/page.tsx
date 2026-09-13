@@ -7,6 +7,7 @@ import { getReport, updateReport } from "@/lib/data";
 import { THEME_LIST } from "@/lib/themes";
 import { createClient } from "@/lib/supabase-browser";
 import type { Report, Finding, Severity } from "@/lib/types";
+import { AnnotationEditor, AnnotatedPhoto, normalizeShapes, type Shape } from "@/components/Annotations";
 
 export default function ReportPage(){ return <AuthGate><Editor/></AuthGate>; }
 
@@ -238,6 +239,9 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
   const [f,setF]=useState(finding);
   const [busy,setBusy]=useState(false);
   const [photoUrl,setPhotoUrl]=useState<string|null>(null);
+  const [annOpen,setAnnOpen]=useState(false);
+  const [editingText,setEditingText]=useState(false);
+  const shapes=normalizeShapes((f as any).annotations);
 
   useEffect(()=>{ (async()=>{ if(f.photo_path){ const { data }=await sb.storage.from("inspection-photos").createSignedUrl(f.photo_path,3600); setPhotoUrl(data?.signedUrl||null);} })(); },[f.photo_path]);
 
@@ -268,7 +272,6 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
       }
       if(j?.text){
         const patch:Partial<Finding>={ ai_text:j.text };
-        if(j.annotations) (patch as any).annotations=j.annotations;
         // Severity is re-decided on every rewrite, as requested.
         if(j.severity) patch.severity=j.severity as Severity;
         // A title you typed yourself is kept; the model only fills a blank one.
@@ -285,7 +288,17 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
     <div className="card" style={{padding:14,marginBottom:12}}>
       <div style={{display:"flex",gap:12}}>
         <div style={{width:96,flexShrink:0}}>
-          {photoUrl ? <img src={photoUrl} alt="" style={{width:96,height:72,objectFit:"cover",borderRadius:6,border:"1px solid var(--line)"}}/> :
+          {photoUrl ? (
+            <>
+              <div onClick={()=>setAnnOpen(true)} title="Click to annotate" style={{cursor:"pointer",border:"1px solid var(--line)",borderRadius:6,overflow:"hidden"}}>
+                <AnnotatedPhoto src={photoUrl} shapes={shapes} height={72} aspect={96/72} strokeWidth={1.5} fontSize={6}/>
+              </div>
+              <button onClick={()=>setAnnOpen(true)} style={{width:"100%",marginTop:5,fontSize:11,fontWeight:600,padding:"4px 0",borderRadius:6,border:"1px solid var(--line-2)",background:"var(--surface)",color:"var(--muted)",cursor:"pointer"}}>
+                {shapes.length?`Annotations (${shapes.length})`:"Annotate"}
+              </button>
+              <label style={{display:"block",textAlign:"center",marginTop:4,fontSize:10.5,color:"var(--faint)",cursor:"pointer"}}>Replace<input type="file" accept="image/*" style={{display:"none"}} onChange={onPhoto}/></label>
+            </>
+          ) :
             <label style={{width:96,height:72,border:"1px dashed var(--line-2)",borderRadius:6,display:"grid",placeItems:"center",cursor:"pointer",color:"var(--faint)",fontSize:22}}>+<input type="file" accept="image/*" style={{display:"none"}} onChange={onPhoto}/></label>}
         </div>
         <div style={{flex:1,minWidth:0}}>
@@ -301,9 +314,34 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
           </div>
         </div>
       </div>
+      {annOpen && photoUrl && (
+        <AnnotationEditor src={photoUrl} initial={shapes}
+          onClose={()=>setAnnOpen(false)}
+          onSave={async(next:Shape[])=>{ await save({ annotations: next } as any); setAnnOpen(false); }} />
+      )}
       <div style={{marginTop:11,paddingTop:11,borderTop:"1px dashed var(--line)"}}>
-        <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"var(--accent-2)",fontWeight:700,marginBottom:4}}>Report text</div>
-        <div style={{fontSize:13,color:f.ai_text?"var(--ink)":"var(--faint)",fontStyle:f.ai_text?"normal":"italic"}}>{f.ai_text||"Not written yet — type a note and click Rewrite with AI."}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+          <div style={{fontSize:10,letterSpacing:".08em",textTransform:"uppercase",color:"var(--accent-2)",fontWeight:700}}>Report text</div>
+          <div style={{flex:1}}/>
+          {!editingText && <button onClick={()=>setEditingText(true)} style={{fontSize:11,fontWeight:600,color:"var(--muted)",background:"transparent",border:0,cursor:"pointer",padding:0}}>Edit</button>}
+        </div>
+        {editingText ? (
+          /* This is what actually goes in the report, so it stays editable —
+             the AI produces a draft, not the final word. */
+          <textarea
+            className="input" autoFocus
+            value={f.ai_text||""}
+            onChange={e=>setF({...f,ai_text:e.target.value})}
+            onBlur={e=>{ save({ai_text:e.target.value}); setEditingText(false); }}
+            placeholder="Write the report text for this finding"
+            style={{minHeight:72,resize:"vertical",fontSize:13,lineHeight:1.55}}
+          />
+        ) : (
+          <div onClick={()=>setEditingText(true)} title="Click to edit"
+            style={{fontSize:13,cursor:"text",color:f.ai_text?"var(--ink)":"var(--faint)",fontStyle:f.ai_text?"normal":"italic"}}>
+            {f.ai_text||"Not written yet — type a note and click Rewrite with AI, or click here to write it yourself."}
+          </div>
+        )}
       </div>
     </div>
   );

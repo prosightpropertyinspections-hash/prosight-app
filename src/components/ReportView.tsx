@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Report } from "@/lib/types";
 import { buildModel, GRADE_DESC, coverImage } from "@/lib/report-model";
 import { getTheme, THEME_FONT_HREF, ThemeTokens } from "@/lib/themes";
+import { AnnotatedPhoto, normalizeShapes } from "@/components/Annotations";
 
 function fmtDate(iso:string|null){ if(!iso)return "—"; return new Date(iso+"T00:00").toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"}); }
 
@@ -686,7 +687,15 @@ function FindingCard({t,f,urls}:any){
   const m=t.sev[f.severity as keyof typeof t.sev]||t.sev.monitor;
   const purl=f.photo_path?urls[f.photo_path]:null;
   const lay=t.layout;
-  const body=(<><div style={{fontSize:11.5,color:t.sub,lineHeight:1.6}}>{f.ai_text||f.note}</div>{purl && <img src={purl} style={{width:"100%",maxHeight:240,objectFit:"cover",borderRadius:t.radius,marginTop:11}}/>}</>);
+  const shapes=normalizeShapes(f.annotations);
+  /* Same rendered size as the object-fit:cover image this replaces — the photo
+     does not change shape. AnnotatedPhoto just crops the overlay identically so
+     the shapes stay locked to what they were drawn around. */
+  const body=(<><div style={{fontSize:11.5,color:t.sub,lineHeight:1.6}}>{f.ai_text||f.note}</div>{purl && (
+    <div style={{marginTop:11}}>
+      <AnnotatedPhoto src={purl} shapes={shapes} height={240} radius={t.radius} strokeWidth={2.5} fontSize={11}/>
+    </div>
+  )}</>);
   if(lay==="band" || lay==="technical") return (
     <div style={{border:`1px solid ${t.hair}`,borderLeft:`4px solid ${m.c}`,borderRadius:t.radius,padding:"13px 15px",marginBottom:11,pageBreakInside:"avoid",background:t.pageBg==="#0e0f12"?"#15171b":"transparent"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:4}}>

@@ -9,8 +9,11 @@ export const ROOM_DEFS = [
 export const SYS_DEFS = [
   {k:"roofing",l:"Roofing system",s:"Main dwelling roof"},{k:"exterior",l:"Exterior & siding",s:"Cladding, foundation, grading"},
   {k:"basement",l:"Basement / foundation",s:""},{k:"crawlspace",l:"Crawlspace",s:"Access, framing, moisture"},
-  {k:"mechanical",l:"Utility / mechanical",s:"HVAC, water heater, panel"},
-  {k:"ac",l:"A/C condenser",s:"Exterior unit"},{k:"deck",l:"Deck / porch",s:""},{k:"sewer",l:"Sewer scope",s:"Camera inspection"},
+  {k:"mechanical",l:"Utility / mechanical",s:"HVAC, water heater"},
+  {k:"electrical",l:"Electrical panel",s:"Service panel, breakers, grounding"},
+  {k:"ac",l:"A/C condenser",s:"Exterior unit"},{k:"deck",l:"Deck / porch",s:""},
+  {k:"backyard",l:"Backyard",s:"Fence, grading & drainage, shed, patio"},
+  {k:"sewer",l:"Sewer scope",s:"Camera inspection"},
 ];
 
 export function buildSkeleton(d: Pick<Report,"rooms"|"systems"|"garage"|"extras">): Partial<Section>[] {
@@ -23,9 +26,11 @@ export function buildSkeleton(d: Pick<Report,"rooms"|"systems"|"garage"|"extras"
   if (d.systems.roofing) g("Roofing System", "Exterior");
   if (d.systems.exterior) g("Exterior & Siding", "Exterior");
   if (d.systems.deck) g("Deck / Porch", "Exterior");
+  if (d.systems.backyard) g("Backyard", "Exterior");
   if (d.systems.basement) g("Basement", "Structure");
   if (d.systems.crawlspace) g("Crawlspace", "Structure");
   if (d.systems.mechanical) g("Utility / Mechanical Room", "Systems");
+  if (d.systems.electrical) g("Electrical Panel", "Systems");
   rep("kitchen","Interior — Kitchen","Interior"); rep("living","Interior — Living Room","Interior");
   rep("family","Interior — Family Room","Interior"); rep("dining","Interior — Dining Room","Interior");
   rep("laundry","Laundry Room","Interior"); rep("bathroom","Interior — Bathroom","Interior");
