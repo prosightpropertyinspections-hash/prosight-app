@@ -31,7 +31,8 @@ const FILL:React.CSSProperties = { flex:"1 1 0", minHeight:0, display:"flex", ov
 const PAGE_PX = 11 * 96;
 const PAD_TOP = 46;
 const FOOT_RESERVE = 104;
-const USABLE_PX = PAGE_PX - PAD_TOP - FOOT_RESERVE;
+const SAFETY_PX = 10;                       // absorbs sub-pixel line-height rounding
+const USABLE_PX = PAGE_PX - PAD_TOP - FOOT_RESERVE - SAFETY_PX;
 const CONTENT_W = 8.5 * 96 - 108;   // page width minus left+right padding
 
 type Chunk = { sec:any; g:any; idx:number; findings:any[]; part:number; parts:number };
@@ -257,9 +258,11 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
           <div data-me="head">
             <SecTitle t={t} title="Executive Summary" sub={`Most significant findings from the inspection of ${report.address}`}/>
             <ExecCounts t={t} M={M}/>
+            <div style={{fontFamily:t.displayFont,fontSize:15,fontWeight:700,margin:"0 0 10px"}}>Priority Findings</div>
           </div>
           <div data-me="cont">
-            <SecTitle t={t} title="Executive Summary (continued)" sub={`Most significant findings from the inspection of ${report.address}`}/>
+            <SecTitle t={t} title="Executive Summary (continued)" sub={`Page 2 of 2 · ${report.address}`}/>
+            <div style={{fontFamily:t.displayFont,fontSize:15,fontWeight:700,margin:"12px 0 10px"}}>Priority Findings (continued)</div>
           </div>
           {execBlocks(M).map(b=>(
             <div key={b.key} data-mb={b.key}><ExecBlockView t={t} b={b}/></div>
