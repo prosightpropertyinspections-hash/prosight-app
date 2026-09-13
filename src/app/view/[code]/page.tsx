@@ -41,12 +41,7 @@ export default function ClientView(){
   if(phase==="locked") return (
     <Center>
       <div style={{width:"100%",maxWidth:420,background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,boxShadow:"0 12px 32px -8px rgba(16,24,40,.18)",padding:30}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-          <div style={{width:34,height:34,borderRadius:8,background:"#0d2035",display:"grid",placeItems:"center"}}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 21v-6h6v6"/></svg>
-          </div>
-          <div style={{fontWeight:700}}>ProSight Property Inspections</div>
-        </div>
+        <img src="/logo.svg" alt="ProSight Property Inspections" style={{height:46,width:"auto",display:"block",marginBottom:22}}/>
         <div style={{fontSize:11,letterSpacing:2,color:"#b98a2e",fontWeight:600}}>CONFIDENTIAL INSPECTION REPORT</div>
         <div style={{fontSize:22,fontWeight:800,color:"#0d2035",margin:"6px 0 2px"}}>{header.address||"Your property"}</div>
         <div style={{fontSize:14,color:"#667",marginBottom:22}}>Prepared for {header.client||"you"}</div>
@@ -64,17 +59,17 @@ export default function ClientView(){
   return (
     <div style={{background:"#e9ebee",minHeight:"100vh"}}>
       <style>{`@media print{.noprint{display:none!important;}}`}</style>
-      <div className="noprint" style={{background:"#0d2035",color:"#fff",padding:"14px 20px",display:"flex",alignItems:"center",gap:14,position:"sticky",top:0,zIndex:20}}>
-        <div style={{width:32,height:32,borderRadius:7,background:"#1c66a8",display:"grid",placeItems:"center",flexShrink:0}}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
-        </div>
+      <div className="noprint" style={{background:"#0d2035",color:"#fff",padding:"12px 20px",display:"flex",alignItems:"center",gap:14,position:"sticky",top:0,zIndex:20}}>
+        <img src="/logo-ondark.svg" alt="ProSight Property Inspections" style={{height:40,width:"auto",display:"block",flexShrink:0}}/>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontWeight:700,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{report.address}</div>
           <div style={{fontSize:12,color:"#9fb4c9"}}>Prepared for {report.client} · {fmtDate(report.inspection_date)}</div>
         </div>
-        <button onClick={()=>window.print()} style={{background:"#b98a2e",color:"#0d2035",border:0,padding:"9px 16px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13,whiteSpace:"nowrap"}}>Download PDF</button>
+        <button onClick={()=>window.print()} style={{background:"#2f9d6b",color:"#fff",border:0,padding:"9px 18px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13,whiteSpace:"nowrap"}}>Print &amp; Download</button>
       </div>
-      <div style={{padding:"18px 0"}}>
+      {/* rv-shell: the print stylesheet zeroes this padding. Without the class
+          every sheet starts 18px low and the bottom of each page is clipped. */}
+      <div className="rv-shell" style={{padding:"18px 0"}}>
         <ReportView report={report} urls={urls} themeId={report.theme}/>
       </div>
     </div>
