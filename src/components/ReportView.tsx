@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Report } from "@/lib/types";
 import { buildModel, GRADE_DESC, coverImage } from "@/lib/report-model";
 import { getTheme, THEME_FONT_HREF, ThemeTokens } from "@/lib/themes";
@@ -21,6 +21,25 @@ const PAGE_BOX:React.CSSProperties = {
 /* Flexible filler used on covers: soaks up whatever height is left over so the
    fixed blocks above and below always land inside the 11in box. */
 const FILL:React.CSSProperties = { flex:"1 1 0", minHeight:0, display:"flex", overflow:"hidden" };
+
+/* Pagination budget, in CSS px at 96dpi.
+   A page is 11in tall with 46px of top padding. The footer is absolutely
+   positioned 26px from the bottom and stands about 62px tall, so anything
+   below ~958px would run underneath it. That is what made a third finding
+   print straight through the footer and off the sheet. */
+const PAGE_PX = 11 * 96;
+const PAD_TOP = 46;
+const FOOT_RESERVE = 104;
+const USABLE_PX = PAGE_PX - PAD_TOP - FOOT_RESERVE;
+const CONTENT_W = 8.5 * 96 - 108;   // page width minus left+right padding
+
+type Chunk = { sec:any; g:any; idx:number; findings:any[]; part:number; parts:number };
+
+function outerHeight(el: Element){
+  const cs = getComputedStyle(el as HTMLElement);
+  return (el as HTMLElement).getBoundingClientRect().height
+       + parseFloat(cs.marginTop || "0") + parseFloat(cs.marginBottom || "0");
+}
 const FILL_IMG:React.CSSProperties = { width:"100%", height:"100%", objectFit:"cover" };
 
 export default function ReportView({ report, urls, themeId }:{ report:Report; urls:Record<string,string>; themeId?:string|null; }){
@@ -28,6 +47,56 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
   const M = buildModel(report);
   const cover = coverImage(report, urls, M.allF);
   const reportNo = report.report_no || `PSPI-${(report.id||"").slice(0,8).toUpperCase()}`;
+
+  /* Findings are measured off-screen at the real page width, then packed into
+     as many pages as they need. Photos vary too much in aspect ratio to
+     estimate: a wrong guess silently clips a finding out of the report. */
+  const measureRef = useRef<HTMLDivElement|null>(null);
+  const [chunks,setChunks] = useState<Chunk[]|null>(null);
+
+  useLayoutEffect(()=>{ setChunks(null); },[report, themeId]);
+
+  useEffect(()=>{
+    const root = measureRef.current;
+    if(!root || chunks) return;
+    let dead = false;
+
+    const imgs = Array.from(root.querySelectorAll("img"));
+    const settled = imgs.map(im => (im as HTMLImageElement).complete
+      ? Promise.resolve()
+      : new Promise<void>(done => { (im as HTMLImageElement).onload = (im as HTMLImageElement).onerror = () => done(); }));
+
+    Promise.all(settled).then(()=>{
+      if(dead || !measureRef.current) return;
+      const hdrH:Record<string,number> = {};
+      measureRef.current.querySelectorAll("[data-mh]").forEach(el=>{
+        hdrH[(el as HTMLElement).dataset.mh!] = outerHeight(el);
+      });
+      const findH:Record<string,number> = {};
+      measureRef.current.querySelectorAll("[data-mf]").forEach(el=>{
+        findH[(el as HTMLElement).dataset.mf!] = outerHeight(el);
+      });
+
+      const out:Chunk[] = [];
+      M.withF.forEach((sec:any, idx:number)=>{
+        const g = M.graded.find((x:any)=>x.section.id===sec.id);
+        const budget = USABLE_PX - (hdrH[sec.id] || 0);
+        const pages:any[][] = [];
+        let cur:any[] = [];
+        let used = 0;
+        (sec.findings||[]).forEach((f:any)=>{
+          const h = findH[f.id] ?? 0;
+          if(cur.length && used + h > budget){ pages.push(cur); cur=[]; used=0; }
+          cur.push(f); used += h;
+        });
+        if(cur.length || !pages.length) pages.push(cur);
+        pages.forEach((fs,i)=> out.push({ sec, g, idx, findings:fs, part:i+1, parts:pages.length }));
+      });
+      setChunks(out);
+    });
+
+    return ()=>{ dead = true; };
+  },[report, themeId, urls, chunks, M]);
 
   // Dev helper: warns in the console if any page's content is taller than the
   // sheet, so an overflow never silently becomes a clipped or spilled page again.
@@ -102,12 +171,35 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
       <GradePage t={t} report={report} M={M} pageBase={pageBase} reportNo={reportNo} pageNo={3}/>
       <ExecPage  t={t} report={report} M={M} pageBase={pageBase} reportNo={reportNo} pageNo={4}/>
 
-      {M.withF.map((s:any,i:number)=>{
-        const g=M.graded.find((x:any)=>x.section.id===s.id);
-        return <SectionPage key={s.id} t={t} s={s} g={g} idx={i} urls={urls} pageBase={pageBase} reportNo={reportNo} address={report.address} pageNo={5+i}/>;
-      })}
+      {(chunks ?? M.withF.map((s:any,i:number)=>({
+          sec:s, g:M.graded.find((x:any)=>x.section.id===s.id), idx:i,
+          findings:s.findings||[], part:1, parts:1,
+        }))).map((c:Chunk,i:number)=>(
+        <SectionPage key={`${c.sec.id}-${c.part}`} t={t} s={c.sec} g={c.g} idx={c.idx}
+          findings={c.findings} part={c.part} parts={c.parts}
+          urls={urls} pageBase={pageBase} reportNo={reportNo} address={report.address} pageNo={5+i}/>
+      ))}
 
-      <ScopePage t={t} report={report} pageBase={pageBase} reportNo={reportNo} pageNo={5+M.withF.length}/>
+      <ScopePage t={t} report={report} pageBase={pageBase} reportNo={reportNo}
+        pageNo={5 + (chunks ? chunks.length : M.withF.length)}/>
+
+      {/* Off-screen measuring pass. Removed from the document once packed. */}
+      {!chunks && (
+        <div ref={measureRef} aria-hidden className="noprint"
+          style={{position:"absolute",left:-99999,top:0,width:CONTENT_W,visibility:"hidden",pointerEvents:"none",fontFamily:t.bodyFont,color:t.ink,background:t.pageBg}}>
+          {M.withF.map((sec:any,i:number)=>{
+            const g=M.graded.find((x:any)=>x.section.id===sec.id);
+            return (
+              <div key={sec.id}>
+                <div data-mh={sec.id}><SectionHeader t={t} s={sec} g={g} idx={i} part={1} parts={1}/></div>
+                {(sec.findings||[]).map((f:any)=>(
+                  <div key={f.id} data-mf={f.id}><FindingCard t={t} f={f} urls={urls}/></div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -550,28 +642,31 @@ function ExecPage({t,report,M,pageBase,reportNo,pageNo}:any){
 
 /* ---------------- SECTION PAGE ---------------- */
 
-function SectionHeader({t,s,g,idx}:any){
+function SectionHeader({t,s,g,idx,part=1,parts=1}:any){
   const lay=t.layout;
+  // "(continued)" so a split section still reads as one section.
+  const name = part>1 ? `${s.name} (continued)` : s.name;
+  const partNote = parts>1 ? `Page ${part} of ${parts}` : "";
   if(lay==="band") return (
     <div style={{background:t.accent,color:"#fff",borderRadius:t.radius,padding:"14px 18px",marginBottom:16,display:"flex",alignItems:"center",gap:14}}>
       <div style={{fontFamily:t.displayFont,fontSize:26,fontWeight:700,opacity:.85}}>{String(idx+1).padStart(2,"0")}</div>
       <div style={{width:1,height:30,background:"rgba(255,255,255,.35)"}}/>
-      <div style={{flex:1}}><div style={{fontFamily:t.displayFont,fontSize:19,fontWeight:700}}>{s.name}</div><div style={{fontSize:9,letterSpacing:1.5,opacity:.8,textTransform:"uppercase"}}>{s.subtitle||s.grp}</div></div>
+      <div style={{flex:1}}><div style={{fontFamily:t.displayFont,fontSize:19,fontWeight:700}}>{name}</div><div style={{fontSize:9,letterSpacing:1.5,opacity:.8,textTransform:"uppercase"}}>{partNote ? `${s.subtitle||s.grp} \u00b7 ${partNote}` : (s.subtitle||s.grp)}</div></div>
       <span style={{fontFamily:t.displayFont,fontSize:20,fontWeight:700,background:"#fff",color:t.gradeColor[g.grade],borderRadius:t.radius,padding:"2px 12px"}}>{g.grade}</span>
     </div>
   );
   if(lay==="technical") return (
     <div style={{marginBottom:16,padding:"14px 16px",border:`1px solid ${t.hair}`,borderLeft:`4px solid ${t.gradeColor[g.grade]}`,borderRadius:t.radius,display:"flex",alignItems:"center",gap:14,background:t.pageBg==="#0e0f12"?"#15171b":"transparent"}}>
       <div style={{fontFamily:"monospace",fontSize:13,color:t.accent,letterSpacing:1}}>[{String(idx+1).padStart(2,"0")}]</div>
-      <div style={{flex:1}}><div style={{fontFamily:t.displayFont,fontSize:18,fontWeight:700}}>{s.name}</div><div style={{fontSize:9,letterSpacing:1.5,color:t.sub,textTransform:"uppercase",fontFamily:"monospace"}}>{s.subtitle||s.grp}</div></div>
+      <div style={{flex:1}}><div style={{fontFamily:t.displayFont,fontSize:18,fontWeight:700}}>{name}</div><div style={{fontSize:9,letterSpacing:1.5,color:t.sub,textTransform:"uppercase",fontFamily:"monospace"}}>{partNote ? `${s.subtitle||s.grp} \u00b7 ${partNote}` : (s.subtitle||s.grp)}</div></div>
       <span style={{fontSize:11,fontWeight:700,color:"#fff",background:t.gradeColor[g.grade],borderRadius:t.radius,padding:"3px 10px",fontFamily:"monospace"}}>GRADE {g.grade}</span>
     </div>
   );
   if(lay==="minimal") return (
     <div style={{marginBottom:20,textAlign:"center",paddingBottom:16,borderBottom:`1px solid ${t.hair}`}}>
       <div style={{fontSize:10,letterSpacing:4,color:t.sub,textTransform:"uppercase",marginBottom:6}}>Section {String(idx+1).padStart(2,"0")} — Grade {g.grade}</div>
-      <div style={{fontFamily:t.displayFont,fontSize:24,fontWeight:700}}>{s.name}</div>
-      <div style={{fontSize:11,letterSpacing:1,color:t.sub,marginTop:2}}>{s.subtitle||s.grp}</div>
+      <div style={{fontFamily:t.displayFont,fontSize:24,fontWeight:700}}>{name}</div>
+      <div style={{fontSize:11,letterSpacing:1,color:t.sub,marginTop:2}}>{partNote ? `${s.subtitle||s.grp} \u00b7 ${partNote}` : (s.subtitle||s.grp)}</div>
     </div>
   );
   // editorial (default): huge ghost number, serif, side accent
@@ -580,8 +675,8 @@ function SectionHeader({t,s,g,idx}:any){
       <div style={{position:"absolute",right:0,top:-8,fontFamily:t.displayFont,fontSize:72,fontWeight:700,color:t.hair,lineHeight:1,zIndex:0}}>{String(idx+1).padStart(2,"0")}</div>
       <div style={{position:"relative",zIndex:1}}>
         <div style={{fontSize:10,letterSpacing:3,color:t.accent,textTransform:"uppercase",marginBottom:4}}>Grade {g.grade}</div>
-        <div style={{fontFamily:t.displayFont,fontSize:24,fontWeight:700}}>{s.name}</div>
-        <div style={{fontSize:11,letterSpacing:1,color:t.sub}}>{s.subtitle||s.grp}</div>
+        <div style={{fontFamily:t.displayFont,fontSize:24,fontWeight:700}}>{name}</div>
+        <div style={{fontSize:11,letterSpacing:1,color:t.sub}}>{partNote ? `${s.subtitle||s.grp} \u00b7 ${partNote}` : (s.subtitle||s.grp)}</div>
       </div>
     </div>
   );
@@ -620,11 +715,12 @@ function FindingCard({t,f,urls}:any){
   );
 }
 
-function SectionPage({t,s,g,idx,urls,pageBase,reportNo,address,pageNo}:any){
+function SectionPage({t,s,g,idx,findings,part=1,parts=1,urls,pageBase,reportNo,address,pageNo}:any){
+  const list = findings ?? s.findings ?? [];
   return (
     <div className="rv-page" style={pageBase}>
-      <SectionHeader t={t} s={s} g={g} idx={idx}/>
-      {s.findings?.map((f:any)=>(<FindingCard key={f.id} t={t} f={f} urls={urls}/>))}
+      <SectionHeader t={t} s={s} g={g} idx={idx} part={part} parts={parts}/>
+      {list.map((f:any)=>(<FindingCard key={f.id} t={t} f={f} urls={urls}/>))}
       <Foot t={t} reportNo={reportNo} address={address} p={pageNo}/>
     </div>
   );
