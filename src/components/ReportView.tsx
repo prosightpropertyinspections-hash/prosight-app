@@ -35,6 +35,21 @@ const USABLE_PX = PAGE_PX - PAD_TOP - FOOT_RESERVE;
 const CONTENT_W = 8.5 * 96 - 108;   // page width minus left+right padding
 
 type Chunk = { sec:any; g:any; idx:number; findings:any[]; part:number; parts:number };
+type ExecBlock = { key:string; kind:"p"|"mh"|"m"; x?:any };
+type ExecChunk = { blocks:ExecBlock[]; part:number; parts:number };
+
+/* The executive summary is a flat run of blocks, so it paginates the same way
+   a section does. Built in one place: the measuring pass and the render must
+   walk an identical list or the packing is meaningless. */
+function execBlocks(M:any):ExecBlock[]{
+  const out:ExecBlock[] = M.priority.map((x:any,i:number)=>({ key:`p${i}`, kind:"p" as const, x }));
+  const mons = M.monitor.slice(0,7);
+  if(mons.length){
+    out.push({ key:"mh", kind:"mh" });
+    mons.forEach((x:any,i:number)=> out.push({ key:`m${i}`, kind:"m" as const, x }));
+  }
+  return out;
+}
 
 function outerHeight(el: Element){
   const cs = getComputedStyle(el as HTMLElement);
@@ -54,12 +69,13 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
      estimate: a wrong guess silently clips a finding out of the report. */
   const measureRef = useRef<HTMLDivElement|null>(null);
   const [chunks,setChunks] = useState<Chunk[]|null>(null);
+  const [execChunks,setExecChunks] = useState<ExecChunk[]|null>(null);
 
-  useLayoutEffect(()=>{ setChunks(null); },[report, themeId]);
+  useLayoutEffect(()=>{ setChunks(null); setExecChunks(null); },[report, themeId]);
 
   useEffect(()=>{
     const root = measureRef.current;
-    if(!root || chunks) return;
+    if(!root || (chunks && execChunks)) return;
     let dead = false;
 
     const imgs = Array.from(root.querySelectorAll("img"));
@@ -94,10 +110,33 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
         pages.forEach((fs,i)=> out.push({ sec, g, idx, findings:fs, part:i+1, parts:pages.length }));
       });
       setChunks(out);
+
+      const eb = execBlocks(M);
+      const headH = Number((measureRef.current.querySelector('[data-me="head"]') as HTMLElement)?.getBoundingClientRect().height || 0);
+      const contH = Number((measureRef.current.querySelector('[data-me="cont"]') as HTMLElement)?.getBoundingClientRect().height || 0);
+      const blockH:Record<string,number> = {};
+      measureRef.current.querySelectorAll("[data-mb]").forEach(el=>{
+        blockH[(el as HTMLElement).dataset.mb!] = outerHeight(el);
+      });
+
+      const epages:ExecBlock[][] = [];
+      let ecur:ExecBlock[] = [];
+      let eused = 0;
+      let ebudget = USABLE_PX - headH;
+      eb.forEach(b=>{
+        const h = blockH[b.key] ?? 0;
+        if(ecur.length && eused + h > ebudget){
+          epages.push(ecur); ecur = []; eused = 0;
+          ebudget = USABLE_PX - contH;   // later pages carry only the heading
+        }
+        ecur.push(b); eused += h;
+      });
+      if(ecur.length || !epages.length) epages.push(ecur);
+      setExecChunks(epages.map((blocks,i)=>({ blocks, part:i+1, parts:epages.length })));
     });
 
     return ()=>{ dead = true; };
-  },[report, themeId, urls, chunks, M]);
+  },[report, themeId, urls, chunks, execChunks, M]);
 
   /* A page is a fixed 8.5in wide, which overflows a phone. Zoom is used rather
      than transform because it affects layout, so the page genuinely becomes
@@ -192,7 +231,11 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
 
       <AboutPage t={t} report={report} pageBase={pageBase} reportNo={reportNo} pageNo={2}/>
       <GradePage t={t} report={report} M={M} pageBase={pageBase} reportNo={reportNo} pageNo={3}/>
-      <ExecPage  t={t} report={report} M={M} pageBase={pageBase} reportNo={reportNo} pageNo={4}/>
+      {(execChunks ?? [{ blocks: execBlocks(M), part:1, parts:1 }]).map((ec:ExecChunk,i:number)=>(
+        <ExecPage key={`exec-${ec.part}`} t={t} report={report} M={M}
+          blocks={ec.blocks} part={ec.part} parts={ec.parts}
+          pageBase={pageBase} reportNo={reportNo} pageNo={4+i}/>
+      ))}
 
       {(chunks ?? M.withF.map((s:any,i:number)=>({
           sec:s, g:M.graded.find((x:any)=>x.section.id===s.id), idx:i,
@@ -200,16 +243,27 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
         }))).map((c:Chunk,i:number)=>(
         <SectionPage key={`${c.sec.id}-${c.part}`} t={t} s={c.sec} g={c.g} idx={c.idx}
           findings={c.findings} part={c.part} parts={c.parts}
-          urls={urls} pageBase={pageBase} reportNo={reportNo} address={report.address} pageNo={5+i}/>
+          urls={urls} pageBase={pageBase} reportNo={reportNo} address={report.address}
+          pageNo={4 + (execChunks ? execChunks.length : 1) + i}/>
       ))}
 
       <ScopePage t={t} report={report} pageBase={pageBase} reportNo={reportNo}
-        pageNo={5 + (chunks ? chunks.length : M.withF.length)}/>
+        pageNo={4 + (execChunks ? execChunks.length : 1) + (chunks ? chunks.length : M.withF.length)}/>
 
       {/* Off-screen measuring pass. Removed from the document once packed. */}
       {!chunks && (
         <div ref={measureRef} aria-hidden className="noprint"
           style={{position:"absolute",left:-99999,top:0,width:CONTENT_W,visibility:"hidden",pointerEvents:"none",fontFamily:t.bodyFont,color:t.ink,background:t.pageBg}}>
+          <div data-me="head">
+            <SecTitle t={t} title="Executive Summary" sub={`Most significant findings from the inspection of ${report.address}`}/>
+            <ExecCounts t={t} M={M}/>
+          </div>
+          <div data-me="cont">
+            <SecTitle t={t} title="Executive Summary (continued)" sub={`Most significant findings from the inspection of ${report.address}`}/>
+          </div>
+          {execBlocks(M).map(b=>(
+            <div key={b.key} data-mb={b.key}><ExecBlockView t={t} b={b}/></div>
+          ))}
           {M.withF.map((sec:any,i:number)=>{
             const g=M.graded.find((x:any)=>x.section.id===sec.id);
             return (
@@ -631,33 +685,52 @@ function GradePage({t,report,M,pageBase,reportNo,pageNo}:any){
 
 /* ---------------- EXEC PAGE ---------------- */
 
-function ExecPage({t,report,M,pageBase,reportNo,pageNo}:any){
+function ExecCounts({t,M}:any){
+  return (
+    <div style={{display:"flex",gap:12,margin:"6px 0 22px"}}>
+      {[["Priority / Safety",M.cP,t.sev.priority],["Monitor / Maintain",M.cM,t.sev.monitor],["Satisfactory",M.cS,t.sev.satisfactory]].map((x:any,i:number)=>(
+        <div key={i} style={{flex:1,border:`1px solid ${t.hair}`,borderRadius:t.radius,padding:16,textAlign:"center",background:x[2].bg}}>
+          <div style={{fontFamily:t.displayFont,fontSize:26,fontWeight:700,color:x[2].c}}>{x[1]}</div>
+          <div style={{fontSize:9,letterSpacing:1,color:t.sub,textTransform:"uppercase",marginTop:2}}>{x[0]}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ExecBlockView({t,b}:{t:ThemeTokens;b:ExecBlock}){
+  if(b.kind==="mh") return <div style={{fontFamily:t.displayFont,fontSize:15,fontWeight:700,margin:"18px 0 10px"}}>Monitor &amp; Maintenance</div>;
+  if(b.kind==="m") return (
+    <div style={{display:"flex",gap:9,padding:"7px 0",borderBottom:`1px solid ${t.hair}`,fontSize:11.5,color:t.sub}}>
+      <span style={{color:t.sev.monitor.c}}>◆</span><span>{b.x.f.ai_text||b.x.f.note}</span>
+    </div>
+  );
+  return (
+    <div style={{borderLeft:`3px solid ${t.sev.priority.c}`,background:t.sev.priority.bg,borderRadius:t.radius,padding:"12px 15px",marginBottom:10,pageBreakInside:"avoid"}}>
+      <div style={{fontSize:9,letterSpacing:1,color:t.sev.priority.c,fontWeight:700,textTransform:"uppercase"}}>{b.x.area}</div>
+      <div style={{fontFamily:t.displayFont,fontSize:14,fontWeight:700,margin:"2px 0"}}>{b.x.f.title||"Priority item"}</div>
+      <div style={{fontSize:11.5,color:t.sub,lineHeight:1.6}}>{b.x.f.ai_text||b.x.f.note}</div>
+    </div>
+  );
+}
+
+function ExecPage({t,report,M,blocks,part=1,parts=1,pageBase,reportNo,pageNo}:any){
+  const list:ExecBlock[] = blocks ?? execBlocks(M);
+  const first = part===1;
+  // The "Priority Findings" heading belongs to the first priority block on each
+  // page, so a page that opens mid-run still says what it is showing.
+  const opensPriority = list.length>0 && list[0].kind==="p";
   return (
     <div className="rv-page" style={pageBase}>
-      <SecTitle t={t} title="Executive Summary" sub={`Most significant findings from the inspection of ${report.address}`}/>
-      <div style={{display:"flex",gap:12,margin:"6px 0 22px"}}>
-        {[["Priority / Safety",M.cP,t.sev.priority],["Monitor / Maintain",M.cM,t.sev.monitor],["Satisfactory",M.cS,t.sev.satisfactory]].map((x:any,i:number)=>(
-          <div key={i} style={{flex:1,border:`1px solid ${t.hair}`,borderRadius:t.radius,padding:16,textAlign:"center",background:x[2].bg}}>
-            <div style={{fontFamily:t.displayFont,fontSize:26,fontWeight:700,color:x[2].c}}>{x[1]}</div>
-            <div style={{fontSize:9,letterSpacing:1,color:t.sub,textTransform:"uppercase",marginTop:2}}>{x[0]}</div>
-          </div>
-        ))}
-      </div>
-      {M.priority.length>0 && <div style={{fontFamily:t.displayFont,fontSize:15,fontWeight:700,marginBottom:10}}>Priority Findings</div>}
-      {M.priority.map((x:any,i:number)=>(
-        <div key={i} style={{borderLeft:`3px solid ${t.sev.priority.c}`,background:t.sev.priority.bg,borderRadius:t.radius,padding:"12px 15px",marginBottom:10}}>
-          <div style={{fontSize:9,letterSpacing:1,color:t.sev.priority.c,fontWeight:700,textTransform:"uppercase"}}>{x.area}</div>
-          <div style={{fontFamily:t.displayFont,fontSize:14,fontWeight:700,margin:"2px 0"}}>{x.f.title||"Priority item"}</div>
-          <div style={{fontSize:11.5,color:t.sub,lineHeight:1.6}}>{x.f.ai_text||x.f.note}</div>
-        </div>
-      ))}
-      {M.monitor.length>0 && <div style={{fontFamily:t.displayFont,fontSize:15,fontWeight:700,margin:"18px 0 10px"}}>Monitor &amp; Maintenance</div>}
-      {M.monitor.slice(0,7).map((x:any,i:number)=>(
-        <div key={i} style={{display:"flex",gap:9,padding:"7px 0",borderBottom:`1px solid ${t.hair}`,fontSize:11.5,color:t.sub}}>
-          <span style={{color:t.sev.monitor.c}}>◆</span><span>{x.f.ai_text||x.f.note}</span>
-        </div>
-      ))}
-      {M.priority.length===0 && M.monitor.length===0 && <div style={{fontSize:12,color:t.sub}}>No priority or maintenance items identified. See sections for detail.</div>}
+      <SecTitle t={t}
+        title={first ? "Executive Summary" : "Executive Summary (continued)"}
+        sub={parts>1 ? `Page ${part} of ${parts} · ${report.address}` : `Most significant findings from the inspection of ${report.address}`}/>
+      {first && <ExecCounts t={t} M={M}/>}
+      {opensPriority && <div style={{fontFamily:t.displayFont,fontSize:15,fontWeight:700,margin:first?"0 0 10px":"12px 0 10px"}}>
+        {first ? "Priority Findings" : "Priority Findings (continued)"}
+      </div>}
+      {list.map(b=><ExecBlockView key={b.key} t={t} b={b}/>)}
+      {first && list.length===0 && <div style={{fontSize:12,color:t.sub}}>No priority or maintenance items identified. See sections for detail.</div>}
       <Foot t={t} reportNo={reportNo} address={report.address} p={pageNo}/>
     </div>
   );
