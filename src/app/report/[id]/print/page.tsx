@@ -40,18 +40,6 @@ export default function PrintReport(){
   async function pick(tid:string){ setTheme(tid); if(report){ await updateReport(report.id,{theme:tid}); } }
 
 
-  const [dl,setDl]=useState(false);
-  async function downloadPdf(){
-    setDl(true);
-    try{
-      const res=await fetch(`/api/pdf?id=${id}`);
-      if(!res.ok){ const j=await res.json().catch(()=>({})); alert("PDF failed: "+(j.error||res.status)+". Use Save as PDF / Print instead."); setDl(false); return; }
-      const blob=await res.blob(); const url=URL.createObjectURL(blob);
-      const a=document.createElement("a"); a.href=url; a.download="ProSight-Report.pdf"; a.click(); URL.revokeObjectURL(url);
-    }catch(e:any){ alert("PDF failed. Use Save as PDF / Print instead."); }
-    setDl(false);
-  }
-
   if(!ready) return <div style={{padding:40,fontFamily:"Inter,sans-serif",color:"#667"}}>Preparing report…</div>;
   if(!report) return <div style={{padding:40}}>Report not found.</div>;
 
@@ -67,8 +55,7 @@ export default function PrintReport(){
             </button>
           ))}
         </div>
-        <button onClick={downloadPdf} disabled={dl} style={{background:"#2f9d6b",color:"#fff",border:0,padding:"8px 16px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13}}>{dl?"Generating…":"Download PDF"}</button>
-        <button onClick={()=>window.print()} style={{background:"#c98a4b",color:"#0d1420",border:0,padding:"8px 16px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13}}>Print</button>
+        <button onClick={()=>window.print()} style={{background:"#2f9d6b",color:"#fff",border:0,padding:"9px 18px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13}}>Print &amp; Download</button>
       </div>}
       <div className="rv-shell" style={{padding:"18px 0"}}>
         <ReportView report={report} urls={urls} themeId={theme}/>
