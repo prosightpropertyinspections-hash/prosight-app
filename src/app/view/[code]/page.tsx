@@ -58,18 +58,34 @@ export default function ClientView(){
   // OPEN — render themed report via shared ReportView
   return (
     <div style={{background:"#e9ebee",minHeight:"100vh"}}>
-      <style>{`@media print{.noprint{display:none!important;}}`}</style>
-      <div className="noprint" style={{background:"#0d2035",color:"#fff",padding:"12px 20px",display:"flex",alignItems:"center",gap:14,position:"sticky",top:0,zIndex:20}}>
-        <img src="/logo-ondark.svg" alt="ProSight Property Inspections" style={{height:40,width:"auto",display:"block",flexShrink:0}}/>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontWeight:700,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{report.address}</div>
-          <div style={{fontSize:12,color:"#9fb4c9"}}>Prepared for {report.client} · {fmtDate(report.inspection_date)}</div>
+      <style>{`
+        @media print{ .noprint{ display:none !important; } }
+        .cv-bar{ background:#0d2035; color:#fff; padding:12px 20px; display:flex; align-items:center; gap:14px; position:sticky; top:0; z-index:20; }
+        .cv-logo{ height:40px; width:auto; display:block; flex-shrink:0; }
+        .cv-addr{ font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .cv-sub{ font-size:12px; color:#9fb4c9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .cv-btn{ background:#2f9d6b; color:#fff; border:0; padding:9px 18px; border-radius:7px; font-weight:700; cursor:pointer; font-size:13px; white-space:nowrap; }
+        .cv-shell{ padding:18px 0; }
+        @media (max-width:700px){
+          .cv-bar{ flex-wrap:wrap; gap:10px; padding:10px 14px; }
+          .cv-logo{ height:30px; }
+          .cv-meta{ flex:1 1 100%; order:3; }
+          .cv-addr{ font-size:13px; white-space:normal; }
+          .cv-btn{ padding:9px 14px; font-size:12.5px; }
+          .cv-shell{ padding:10px 0; }
+        }
+      `}</style>
+      <div className="noprint cv-bar">
+        <img className="cv-logo" src="/logo-ondark.svg" alt="ProSight Property Inspections"/>
+        <div className="cv-meta" style={{flex:1,minWidth:0}}>
+          <div className="cv-addr">{report.address}</div>
+          <div className="cv-sub">Prepared for {report.client} · {fmtDate(report.inspection_date)}</div>
         </div>
-        <button onClick={()=>window.print()} style={{background:"#2f9d6b",color:"#fff",border:0,padding:"9px 18px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13,whiteSpace:"nowrap"}}>Print &amp; Download</button>
+        <button className="cv-btn" onClick={()=>window.print()}>Print &amp; Download</button>
       </div>
       {/* rv-shell: the print stylesheet zeroes this padding. Without the class
           every sheet starts 18px low and the bottom of each page is clipped. */}
-      <div className="rv-shell" style={{padding:"18px 0"}}>
+      <div className="rv-shell cv-shell">
         <ReportView report={report} urls={urls} themeId={report.theme}/>
       </div>
     </div>

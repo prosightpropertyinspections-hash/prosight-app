@@ -99,6 +99,26 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
     return ()=>{ dead = true; };
   },[report, themeId, urls, chunks, M]);
 
+  /* A page is a fixed 8.5in wide, which overflows a phone. Zoom is used rather
+     than transform because it affects layout, so the page genuinely becomes
+     narrower instead of overhanging with a scrollbar. It is applied to .rv-page
+     only — the off-screen measuring pass must keep its true pixel sizes, or
+     pagination would pack the wrong number of findings per sheet. */
+  useEffect(()=>{
+    const fit = () => {
+      const avail = Math.min(window.innerWidth - 16, document.documentElement.clientWidth - 16);
+      const z = Math.min(1, avail / (8.5 * 96));
+      document.documentElement.style.setProperty("--rv-zoom", String(z > 0 ? z : 1));
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    window.addEventListener("orientationchange", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("orientationchange", fit);
+    };
+  },[]);
+
   // Dev helper: warns in the console if any page's content is taller than the
   // sheet, so an overflow never silently becomes a clipped or spilled page again.
   useEffect(()=>{
@@ -132,11 +152,13 @@ export default function ReportView({ report, urls, themeId }:{ report:Report; ur
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing:border-box; }
         html, body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         .rv-page{ box-shadow:0 2px 16px rgba(0,0,0,.14); box-sizing:border-box; width:8.5in; height:11in; overflow:hidden; }
+        @media screen { .rv-page{ zoom: var(--rv-zoom, 1); } }
         @media print {
           .noprint{ display:none !important; }
           html, body { margin:0 !important; padding:0 !important; }
           .rv-shell{ padding:0 !important; background:#fff !important; min-height:0 !important; }
           .rv-page{
+            zoom:1 !important;
             box-shadow:none !important;
             margin:0 !important;
             width:8.5in !important;
