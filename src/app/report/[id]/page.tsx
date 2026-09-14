@@ -227,20 +227,46 @@ function Editor(){
           .input{ font-size:16px !important; }   /* under 16px the browser zooms on focus */
           .sec-row{ padding-top:14px !important; padding-bottom:14px !important; }
         }
-        /* Tablet: the fixed sidebar leaves too little for the form, so sections
-           become a scrolling strip across the top instead. */
+        /* Scrollbars are hidden throughout: on a tablet they are a desktop
+           artefact that eats width and signals nothing a swipe doesn't. */
+        .ed-side::-webkit-scrollbar, .ed-main::-webkit-scrollbar,
+        .ed-secs::-webkit-scrollbar{ width:0; height:0; display:none; }
+        .ed-side, .ed-main, .ed-secs{ scrollbar-width:none; -ms-overflow-style:none; }
+
+        /* Tablet and below: the section list stops being a column and becomes a
+           single swipeable row, so it costs one line instead of a third of the
+           screen. */
         @media (max-width:1024px){
           .ed-body{ flex-direction:column !important; }
-          .ed-side{ width:100% !important; max-height:34vh; border-right:0 !important;
-                    border-bottom:1px solid var(--line); }
+          .ed-side{ width:100% !important; max-height:none !important; overflow:visible !important;
+                    border-right:0 !important; border-bottom:1px solid var(--line); }
+          .ed-cap{ display:none !important; }
+          .ed-secs{ display:flex; gap:8px; overflow-x:auto; padding:10px 12px;
+                    scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
+          .ed-secs > .sec-row{
+            flex:0 0 auto; scroll-snap-align:start;
+            border:1px solid var(--line) !important; border-left:1px solid var(--line) !important;
+            border-radius:999px; padding:9px 14px !important; gap:8px !important;
+            background:var(--surface) !important; max-width:64vw;
+          }
+          .ed-secs > .sec-row[data-active="1"]{
+            border-color:var(--accent) !important; background:var(--accent-tint) !important;
+          }
+          .ed-secs .sec-move{ display:none !important; }   /* reorder stays on the desktop layout */
+          .ed-outlets{ flex:0 0 auto; border-radius:999px; border:1px solid var(--line);
+                       padding:9px 14px !important; margin:10px 0 0 12px; }
           .ed-main{ padding:18px 16px 40px !important; }
           .ed-thumb{ width:132px; }
+          .ed-topbar{ flex-wrap:wrap; height:auto !important; padding:10px 14px !important; gap:10px !important; }
+          .ed-topbar .ed-title{ flex:1 1 100%; order:-1; }
         }
         @media (max-width:640px){
-          .ed-side{ max-height:30vh; }
           .ed-thumb{ width:100%; }
           .ed-findrow{ flex-direction:column !important; }
+          .ed-secs > .sec-row{ max-width:72vw; }
         }
+        .sec-row .sec-move{
+
         .sec-row .sec-move{ display:flex; flex-direction:column; gap:1px; opacity:0; transition:opacity .12s; }
         .sec-row:hover .sec-move, .sec-row:focus-within .sec-move{ opacity:1; }
         .sec-move button{ border:0; background:transparent; color:var(--faint); cursor:pointer;
@@ -250,12 +276,12 @@ function Editor(){
         @media (pointer:coarse){ .sec-row .sec-move{ opacity:1; } .sec-move button{ font-size:9px; padding:4px 5px; } }
       `}</style>
       <header style={{background:"var(--surface)",borderBottom:"1px solid var(--line)",flexShrink:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:14,height:56,padding:"0 20px"}}>
+        <div className="ed-topbar" style={{display:"flex",alignItems:"center",gap:14,height:56,padding:"0 20px"}}>
           <Link href="/" style={{display:"flex",alignItems:"center",gap:8,color:"var(--muted)",fontSize:13}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 6l-6 6 6 6"/></svg>Reports
           </Link>
           <div style={{width:1,height:22,background:"var(--line)"}}/>
-          <div style={{minWidth:0}}>
+          <div className="ed-title" style={{minWidth:0}}>
             <div style={{fontWeight:650,fontSize:14.5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{report.address||"Untitled"}</div>
             <div style={{fontSize:12,color:"var(--muted)"}}>{report.client||"—"}</div>
           </div>
@@ -268,17 +294,17 @@ function Editor(){
 
       <div className="ed-body" style={{flex:1,display:"flex",minHeight:0}}>
         <aside className="ed-side" style={{width:280,borderRight:"1px solid var(--line)",background:"var(--surface)",overflow:"auto",flexShrink:0}}>
-          <div style={{padding:"14px 16px",fontSize:11,fontWeight:600,letterSpacing:".06em",textTransform:"uppercase",color:"var(--faint)"}}>Sections · {report.sections?.length||0}</div>
-          <div onClick={()=>setActiveSec(OUTLETS)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",cursor:"pointer",background:activeSec===OUTLETS?"var(--accent-tint)":"transparent",borderLeft:activeSec===OUTLETS?"3px solid var(--accent)":"3px solid transparent",borderBottom:"1px solid var(--line)"}}>
+          <div className="ed-cap" style={{padding:"14px 16px",fontSize:11,fontWeight:600,letterSpacing:".06em",textTransform:"uppercase",color:"var(--faint)"}}>Sections · {report.sections?.length||0}</div>
+          <div className="ed-outlets" onClick={()=>setActiveSec(OUTLETS)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",cursor:"pointer",background:activeSec===OUTLETS?"var(--accent-tint)":"transparent",borderLeft:activeSec===OUTLETS?"3px solid var(--accent)":"3px solid transparent",borderBottom:"1px solid var(--line)"}}>
             <span style={{fontSize:11,color:"var(--faint)",fontWeight:600,width:18}}>⚡</span>
             <span style={{flex:1,fontSize:13,fontWeight:activeSec===OUTLETS?600:500}}>Receptacle testing</span>
           </div>
-          <div ref={listRef}>
+          <div ref={listRef} className="ed-secs">
           {report.sections?.map((s,i)=>{
             const hasF=(s.findings?.length||0)>0;
             const isOver = overId===s.id && dragId!==s.id;
             return (
-            <div key={s.id} className="sec-row" data-sec={s.id}
+            <div key={s.id} className="sec-row" data-sec={s.id} data-active={s.id===activeSec?"1":"0"}
               draggable
               onDragStart={e=>{ setDragId(s.id); e.dataTransfer.effectAllowed="move"; }}
               onDragOver={e=>{ e.preventDefault(); if(overId!==s.id) setOverId(s.id); }}
