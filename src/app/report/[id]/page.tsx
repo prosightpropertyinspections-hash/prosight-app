@@ -321,7 +321,11 @@ function Editor(){
               onChange={saveOutlets}
             />
           ) : <>
-          <CoverPhoto report={report} onChange={()=>setReport({...report!})} />
+          {/* One cover photo per report, not per section. It lives on the
+              roofing section because that is the front-of-house shot. */}
+          {section && /roof/i.test(section.name) && (
+            <CoverPhoto report={report} onChange={()=>setReport({...report!})} />
+          )}
           {section && <>
             <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:4}}>
               <h1 style={{margin:0,fontSize:20,fontWeight:700}}>{section.name}</h1>
