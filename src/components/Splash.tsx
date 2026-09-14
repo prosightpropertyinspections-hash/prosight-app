@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-/* Launch screen: the company logo held for four seconds with the inspector's
+/* Launch screen: the company logo held for three seconds with the inspector's
    arm working. No fades — it is simply there, then it is gone. Once per
    session; a splash on every navigation is an obstacle, not branding. */
 export default function Splash() {
@@ -13,8 +13,9 @@ export default function Splash() {
     if (seen) { setShow(false); return; }
     try { sessionStorage.setItem("ps-splash", "1"); } catch {}
 
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const t = setTimeout(() => setShow(false), reduce ? 600 : 4000);
+    let reduce = false;
+    try { reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch {}
+    const t = setTimeout(() => setShow(false), reduce ? 600 : 3000);
     return () => clearTimeout(t);
   }, []);
 

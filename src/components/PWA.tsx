@@ -10,24 +10,35 @@ export default function PWA() {
   const [ios, setIos] = useState(false);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
+    try {
+      if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+    } catch {}
 
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (navigator as any).standalone === true;
+    let standalone = false;
+    try {
+      standalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        (navigator as any).standalone === true;
+    } catch {}
     if (standalone) return;                       // already installed
 
-    if (localStorage.getItem("ps-install-dismissed") === "1") return;
+    // Throws on Android when site data is blocked, which would otherwise take
+    // the whole page down with a client-side exception.
+    try { if (localStorage.getItem("ps-install-dismissed") === "1") return; } catch {}
 
-    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent || "");
     if (isIos) { setIos(true); setShow(true); return; }
 
     const onPrompt = (e: any) => { e.preventDefault(); setPrompt(e); setShow(true); };
+    const onInstalled = () => setShow(false);
     window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("appinstalled", () => setShow(false));
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
   }, []);
 
   function dismiss() {
@@ -37,8 +48,10 @@ export default function PWA() {
 
   async function install() {
     if (!prompt) return;
-    prompt.prompt();
-    await prompt.userChoice;
+    try {
+      prompt.prompt();
+      await prompt.userChoice;
+    } catch {}
     setPrompt(null); setShow(false);
   }
 
@@ -46,7 +59,7 @@ export default function PWA() {
 
   return (
     <div className="pwa">
-      <style dangerouslySetInnerHTML={{__html: PWA_CSS }} />
+      <style>{PWA_CSS}</style>
       <img src="/icons/icon-192.png" alt="" />
       <div className="pwa-t">
         <strong>Install ProSight Studio</strong>
