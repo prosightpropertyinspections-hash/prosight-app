@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
 import UserMenu from "@/components/UserMenu";
+import Intake, { type IntakePrefill } from "@/components/Intake";
 import { createClient } from "@/lib/supabase-browser";
 
 type Appt = {
@@ -73,6 +74,7 @@ function Schedule() {
   const [selected, setSelected] = useState<Date>(() => new Date());
   const [editing, setEditing] = useState<Partial<Appt> | null>(null);
   const [viewing, setViewing] = useState<Appt | null>(null);
+  const [starting, setStarting] = useState<Appt | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -272,11 +274,25 @@ function Schedule() {
           onEdit={() => setEditing(viewing)}
           onStatus={st => setStatus(viewing, st)}
           onReschedule={() => { setEditing({ ...viewing, status: "rescheduled" }); }}
+          onStart={() => setStarting(viewing)}
           onRefresh={load}
           onDelete={() => remove(viewing.id)}
         />
       )}
       {editing && <ApptModal value={editing} onCancel={() => setEditing(null)} onSave={save} onDelete={remove} />}
+
+      {starting && (
+        <Intake
+          appointmentId={starting.id}
+          prefill={{
+            client: starting.client_name,
+            addr: starting.address,
+            date: ymd(new Date(starting.starts_at)),
+            time: new Date(starting.starts_at).toTimeString().slice(0, 5),
+          } as IntakePrefill}
+          onClose={() => setStarting(null)}
+        />
+      )}
     </div>
   );
 }
@@ -496,12 +512,13 @@ function ConfirmText({ a, onSent }: { a: Appt; onSent: () => void }) {
   );
 }
 
-function ApptSummary({ a, onClose, onEdit, onStatus, onReschedule, onDelete, onRefresh }: {
+function ApptSummary({ a, onClose, onEdit, onStatus, onReschedule, onStart, onDelete, onRefresh }: {
   a: Appt;
   onClose: () => void;
   onEdit: () => void;
   onStatus: (s: Appt["status"]) => void;
   onReschedule: () => void;
+  onStart: () => void;
   onDelete: () => void;
   onRefresh: () => void;
 }) {
@@ -548,6 +565,13 @@ function ApptSummary({ a, onClose, onEdit, onStatus, onReschedule, onDelete, onR
           <Row l="Duration">{Math.floor((a.duration_min || 0) / 60)} hr{(a.duration_min || 0) % 60 ? ` ${(a.duration_min || 0) % 60} min` : ""}</Row>
           {a.notes && <Row l="Notes"><span style={{ whiteSpace: "pre-wrap" }}>{a.notes}</span></Row>}
           <ConfirmText a={a} onSent={onRefresh} />
+        </div>
+
+        <div style={{ padding: "0 22px 14px" }}>
+          <button className="sm-start" onClick={onStart}>
+            Start inspection
+            <span>Creates a report with this client, address and date already filled in</span>
+          </button>
         </div>
 
         <div className="sm-actions">
@@ -751,6 +775,12 @@ const SCHED_CSS = `
   color:#fff; font-weight:650; }
 .wp-sum{ padding:11px 15px; background:rgba(69,176,238,.06); border-top:1px solid var(--ps-line-soft);
   font-size:12.5px; color:var(--ps-ink-2); }
+
+.sm-start{ width:100%; text-align:left; border:0; cursor:pointer; border-radius:12px; padding:14px 17px;
+  font:inherit; color:#fff; background:linear-gradient(150deg,#1a6fa9,#134d78);
+  box-shadow:inset 0 1px 0 rgba(234,242,250,.14); font-size:14.5px; font-weight:650; }
+.sm-start:hover{ background:linear-gradient(150deg,#2183c4,#175a8c); }
+.sm-start span{ display:block; font-size:11.5px; font-weight:400; color:rgba(234,242,250,.72); margin-top:3px; }
 
 .ps-root :focus-visible{ outline:2px solid var(--ps-blue); outline-offset:2px; border-radius:8px; }
 @media (max-width:900px){

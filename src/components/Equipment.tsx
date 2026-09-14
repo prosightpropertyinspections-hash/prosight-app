@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { PhotoInput } from "@/components/PhotoInput";
 
 /* Equipment makes, models and ages.
    The data-plate photograph exists so the model can read a serial number the
@@ -217,11 +218,9 @@ export function EquipmentPanel({
                 {age !== null ? `${age} yr${age === 1 ? "" : "s"}` : "Age unknown"}
                 {life && age !== null ? ` · ${BAND_LABEL[band].toLowerCase()} of ~${life} yrs` : ""}
               </span>
-              <label className="eq-plate">
-                {busyId === row.id ? "Reading…" : "Read data plate"}
-                <input type="file" accept="image/*" hidden disabled={busyId === row.id}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) readPlate(row, f); e.currentTarget.value = ""; }} />
-              </label>
+              <PhotoInput size="sm" busy={busyId === row.id}
+                onFile={f => readPlate(row, f)}
+                label={busyId === row.id ? "Reading plate…" : "data plate"} />
               <button className="eq-del" onClick={() => del(row.id)} aria-label="Remove">✕</button>
             </div>
 

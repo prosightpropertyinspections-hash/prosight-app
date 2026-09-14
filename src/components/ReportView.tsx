@@ -1079,7 +1079,7 @@ function UltraCover({t,report,cover,M,reportNo,base,biz}:any){
     <div className="rv-page" style={{...base,background:t.coverBg,color:t.coverInk,padding:0,display:"block"}}>
 
       {/* upper: the photograph */}
-      <div style={{position:"absolute",top:0,left:0,right:0,height:"56%",overflow:"hidden"}}>
+      <div style={{position:"absolute",top:0,left:0,right:0,height:"61%",overflow:"hidden"}}>
         {cover
           ? <img src={cover} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
           : <div style={{position:"absolute",inset:0,background:"linear-gradient(150deg,#12314f,#081120)"}}/>}
@@ -1088,7 +1088,7 @@ function UltraCover({t,report,cover,M,reportNo,base,biz}:any){
       </div>
 
       {/* lower: the panel */}
-      <div style={{position:"absolute",bottom:0,left:0,right:0,height:"46%",background:t.coverBg}}/>
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:"41%",background:t.coverBg}}/>
       <div style={{position:"absolute",bottom:"-14%",left:"-16%",width:"84%",height:"52%",
         background:"radial-gradient(ellipse at 42% 50%, rgba(69,176,238,.22), transparent 68%)",filter:"blur(20px)"}}/>
       <div style={{position:"absolute",bottom:"-10%",right:"-18%",width:"70%",height:"44%",
@@ -1105,7 +1105,7 @@ function UltraCover({t,report,cover,M,reportNo,base,biz}:any){
       </div>
 
       {/* the card, straddling the seam */}
-      <div style={{position:"absolute",left:42,right:42,top:"36%",borderRadius:t.radius,
+      <div style={{position:"absolute",left:42,right:42,bottom:"19%",borderRadius:t.radius,
         background:"linear-gradient(165deg, rgba(20,38,60,.97), rgba(9,19,34,.99))",
         boxShadow:"0 26px 60px -20px rgba(0,0,0,.85), inset 0 1px 0 rgba(234,242,250,.10)",
         border:`1px solid ${line}`,padding:"28px 30px 26px"}}>

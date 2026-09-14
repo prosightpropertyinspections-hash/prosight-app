@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
+import { PhotoInput, PhotoDrop } from "@/components/PhotoInput";
 import { getReport, updateReport } from "@/lib/data";
 import { THEME_LIST } from "@/lib/themes";
 import { createClient } from "@/lib/supabase-browser";
@@ -219,6 +220,27 @@ function Editor(){
   return (
     <div style={{height:"100vh",display:"flex",flexDirection:"column"}}>
       <style>{`
+        .ed-thumb{ width:96px; }
+        .ed-tap{ min-height:40px; }
+        @media (pointer:coarse){
+          .ed-tap, .btn{ min-height:46px; }
+          .input{ font-size:16px !important; }   /* under 16px the browser zooms on focus */
+          .sec-row{ padding-top:14px !important; padding-bottom:14px !important; }
+        }
+        /* Tablet: the fixed sidebar leaves too little for the form, so sections
+           become a scrolling strip across the top instead. */
+        @media (max-width:1024px){
+          .ed-body{ flex-direction:column !important; }
+          .ed-side{ width:100% !important; max-height:34vh; border-right:0 !important;
+                    border-bottom:1px solid var(--line); }
+          .ed-main{ padding:18px 16px 40px !important; }
+          .ed-thumb{ width:132px; }
+        }
+        @media (max-width:640px){
+          .ed-side{ max-height:30vh; }
+          .ed-thumb{ width:100%; }
+          .ed-findrow{ flex-direction:column !important; }
+        }
         .sec-row .sec-move{ display:flex; flex-direction:column; gap:1px; opacity:0; transition:opacity .12s; }
         .sec-row:hover .sec-move, .sec-row:focus-within .sec-move{ opacity:1; }
         .sec-move button{ border:0; background:transparent; color:var(--faint); cursor:pointer;
@@ -244,8 +266,8 @@ function Editor(){
         </div>
       </header>
 
-      <div style={{flex:1,display:"flex",minHeight:0}}>
-        <aside style={{width:280,borderRight:"1px solid var(--line)",background:"var(--surface)",overflow:"auto",flexShrink:0}}>
+      <div className="ed-body" style={{flex:1,display:"flex",minHeight:0}}>
+        <aside className="ed-side" style={{width:280,borderRight:"1px solid var(--line)",background:"var(--surface)",overflow:"auto",flexShrink:0}}>
           <div style={{padding:"14px 16px",fontSize:11,fontWeight:600,letterSpacing:".06em",textTransform:"uppercase",color:"var(--faint)"}}>Sections · {report.sections?.length||0}</div>
           <div onClick={()=>setActiveSec(OUTLETS)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",cursor:"pointer",background:activeSec===OUTLETS?"var(--accent-tint)":"transparent",borderLeft:activeSec===OUTLETS?"3px solid var(--accent)":"3px solid transparent",borderBottom:"1px solid var(--line)"}}>
             <span style={{fontSize:11,color:"var(--faint)",fontWeight:600,width:18}}>⚡</span>
@@ -284,7 +306,7 @@ function Editor(){
           </div>
         </aside>
 
-        <main style={{flex:1,overflow:"auto",padding:"24px 28px"}}>
+        <main className="ed-main" style={{flex:1,overflow:"auto",padding:"24px 28px"}}>
           {activeSec===OUTLETS ? (
             <OutletEditor
               value={(()=>{ 
@@ -344,8 +366,7 @@ function CoverPhoto({report,onChange}:{report:Report;onChange:()=>void}){
   const [url,setUrl]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
   useEffect(()=>{ (async()=>{ if(report.cover_photo){ const { data }=await sb.storage.from("inspection-photos").createSignedUrl(report.cover_photo,3600); setUrl(data?.signedUrl||null);} else { setUrl(null);} })(); },[report.cover_photo]);
-  async function onPhoto(e:React.ChangeEvent<HTMLInputElement>){
-    const file=e.target.files?.[0]; if(!file)return;
+  async function onPhotoFile(file:File){
     setBusy(true);
     const fd=new FormData(); fd.append("file",file); fd.append("reportId",report.id);
     const res=await fetch("/api/upload",{method:"POST",body:fd});
@@ -359,14 +380,14 @@ function CoverPhoto({report,onChange}:{report:Report;onChange:()=>void}){
     <div className="card" style={{padding:14,marginBottom:20,display:"flex",gap:14,alignItems:"center"}}>
       <div style={{flexShrink:0}}>
         {url ? <img src={url} alt="" style={{width:140,height:92,objectFit:"cover",borderRadius:8,border:"1px solid var(--line)"}}/> :
-          <label style={{width:140,height:92,border:"1px dashed var(--line-2)",borderRadius:8,display:"grid",placeItems:"center",cursor:"pointer",color:"var(--faint)",fontSize:12,textAlign:"center",padding:6}}>+ Front of house<input type="file" accept="image/*" style={{display:"none"}} onChange={onPhoto}/></label>}
+          <div style={{width:140,height:92,border:"1px dashed var(--line-2)",borderRadius:8,display:"grid",placeItems:"center",color:"var(--faint)",fontSize:12,textAlign:"center",padding:6}}>Front of house</div>}
       </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontWeight:650,fontSize:14.5}}>Cover photo</div>
         <div style={{fontSize:12.5,color:"var(--muted)",marginTop:2}}>The front-of-house image shown on page one of the report.</div>
-        <div style={{display:"flex",gap:8,marginTop:9}}>
-          <label className="btn btn-ghost" style={{padding:"6px 12px",fontSize:12.5,cursor:"pointer"}}>{busy?"Uploading…":(url?"Replace":"Upload front image")}<input type="file" accept="image/*" style={{display:"none"}} onChange={onPhoto}/></label>
-          {url && <button className="btn btn-ghost" style={{padding:"6px 12px",fontSize:12.5}} onClick={remove}>Remove</button>}
+        <div style={{display:"flex",gap:8,marginTop:10,alignItems:"center",flexWrap:"wrap"}}>
+          <PhotoInput onFile={onPhotoFile} busy={busy}/>
+          {url && <button className="btn btn-ghost ed-tap" onClick={remove}>Remove</button>}
         </div>
       </div>
     </div>
@@ -444,8 +465,7 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
 
   const save=async(patch:Partial<Finding>)=>{ const nf={...f,...patch}; setF(nf); await sb.from("findings").update(patch).eq("id",f.id); };
 
-  async function onPhoto(e:React.ChangeEvent<HTMLInputElement>){
-    const file=e.target.files?.[0]; if(!file)return;
+  async function onPhotoFile(file:File){
     setBusy(true);
     const fd=new FormData(); fd.append("file",file); fd.append("reportId",report.id);
     const res=await fetch("/api/upload",{method:"POST",body:fd});
@@ -483,20 +503,19 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
 
   return (
     <div className="card" style={{padding:14,marginBottom:12}}>
-      <div style={{display:"flex",gap:12}}>
-        <div style={{width:96,flexShrink:0}}>
+      <div className="ed-findrow" style={{display:"flex",gap:12}}>
+        <div className="ed-thumb" style={{flexShrink:0}}>
           {photoUrl ? (
             <>
               <div onClick={()=>setAnnOpen(true)} title="Click to annotate" style={{cursor:"pointer",border:"1px solid var(--line)",borderRadius:6,overflow:"hidden"}}>
-                <AnnotatedPhoto src={photoUrl} shapes={shapes} height={72} aspect={96/72} strokeWidth={1.5} fontSize={6}/>
+                <AnnotatedPhoto src={photoUrl} shapes={shapes} aspect={4/3} strokeWidth={1.5} fontSize={6}/>
               </div>
               <button onClick={()=>setAnnOpen(true)} style={{width:"100%",marginTop:5,fontSize:11,fontWeight:600,padding:"4px 0",borderRadius:6,border:"1px solid var(--line-2)",background:"var(--surface)",color:"var(--muted)",cursor:"pointer"}}>
                 {shapes.length?`Annotations (${shapes.length})`:"Annotate"}
               </button>
-              <label style={{display:"block",textAlign:"center",marginTop:4,fontSize:10.5,color:"var(--faint)",cursor:"pointer"}}>Replace<input type="file" accept="image/*" style={{display:"none"}} onChange={onPhoto}/></label>
+              <div style={{marginTop:6}}><PhotoInput onFile={onPhotoFile} busy={busy} size="sm"/></div>
             </>
-          ) :
-            <label style={{width:96,height:72,border:"1px dashed var(--line-2)",borderRadius:6,display:"grid",placeItems:"center",cursor:"pointer",color:"var(--faint)",fontSize:22}}>+<input type="file" accept="image/*" style={{display:"none"}} onChange={onPhoto}/></label>}
+          ) : <PhotoDrop onFile={onPhotoFile} busy={busy}/>}
         </div>
         <div style={{flex:1,minWidth:0}}>
           <input className="input" value={f.title} onChange={e=>setF({...f,title:e.target.value})} onBlur={e=>save({title:e.target.value})} placeholder="Finding title (e.g. Chimney &amp; Flashing)" style={{fontWeight:600,marginBottom:6}}/>
