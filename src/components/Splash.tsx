@@ -48,7 +48,7 @@ export default function Splash() {
 }
 
 const SP_CSS = `
-.sp{ position:fixed; inset:0; z-index:200; display:flex; flex-direction:column;
+.sp{ position:fixed; inset:0; z-index:200; overflow:hidden; display:flex; flex-direction:column;
   align-items:center; justify-content:center; gap:18px; background:#070d16;
   font-family:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
   transition:opacity .4s ease, transform .4s ease; }
