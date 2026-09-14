@@ -52,12 +52,12 @@ function Settings() {
   return (
     <div className="ps-root">
       <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       <style>{ST_CSS}</style>
 
       <header className="ps-bar">
         <div className="ps-wrap ps-bar-in">
-          <Link href="/"><img className="ps-logo" src="/logo.svg" alt="ProSight Property Inspections" /></Link>
+          <Link href="/"><img className="ps-logo" src="/logo-ondark.svg" alt="ProSight Property Inspections" /></Link>
           <div className="ps-rule" />
           <Link href="/" className="ps-navlink">Reports</Link>
           <Link href="/schedule" className="ps-navlink">Schedule</Link>
@@ -135,39 +135,58 @@ function Settings() {
 
 const ST_CSS = `
 .ps-root{
-  --ps-paper:#f6f8fa; --ps-panel:#ffffff; --ps-navy:#101a26;
-  --ps-blue:#2f7fd0; --ps-line:#e4e8ee; --ps-line-soft:#eef1f5;
-  --ps-ink:#16202b; --ps-ink-2:#475569; --ps-faint:#8a97a6;
-  --ps-serif:"Newsreader",Georgia,serif;
+  --ps-paper:#070d16; --ps-panel:#0f1a2a; --ps-navy:#45b0ee; --ps-blue:#45b0ee;
+  --ps-line:#1d3048; --ps-line-soft:#16273c;
+  --ps-ink:#eaf2fa; --ps-ink-2:#a8bbd0; --ps-faint:#6d8199;
+  --ps-serif:"Sora","Helvetica Neue",sans-serif;
   background:var(--ps-paper); min-height:100vh; color:var(--ps-ink);
+  font-family:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
 }
-.ps-wrap{ max-width:1080px; margin:0 auto; padding:0 24px; }
-.ps-bar{ background:var(--ps-panel); border-bottom:1px solid var(--ps-line); position:sticky; top:0; z-index:30; }
-.ps-bar-in{ display:flex; align-items:center; gap:20px; height:112px; }
-.ps-logo{ height:76px; width:auto; display:block; }
-.ps-rule{ width:1px; height:40px; background:var(--ps-line); }
-.ps-navlink{ font-size:13.5px; color:var(--ps-ink-2); text-decoration:none; padding:6px 2px; }
-.ps-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; padding:34px 0 20px; }
-.ps-title{ font-family:var(--ps-serif); font-size:32px; font-weight:500; letter-spacing:-.015em; margin:0; line-height:1.1; }
-.ps-sub{ margin:6px 0 0; font-size:14px; color:var(--ps-ink-2); max-width:52ch; }
-.ps-action{ background:var(--ps-navy); color:#fff; border:0; border-radius:9px; padding:11px 18px;
-            font:inherit; font-size:13.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.ps-wrap{ max-width:1080px; margin:0 auto; padding:0 26px; }
+.ps-bar{ background:rgba(7,13,22,.82); backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--ps-line); position:sticky; top:0; z-index:30; }
+.ps-bar-in{ display:flex; align-items:center; gap:20px; height:108px; }
+.ps-logo{ height:72px; width:auto; display:block; }
+.ps-rule{ width:1px; height:38px; background:var(--ps-line); }
+.ps-navlink{ font-size:13.5px; color:var(--ps-ink-2); text-decoration:none; padding:8px 2px; }
+.ps-navlink:hover{ color:var(--ps-ink); }
+.ps-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; padding:42px 0 22px; }
+.ps-title{ font-family:var(--ps-serif); font-size:34px; font-weight:600; letter-spacing:-.9px; margin:0; line-height:1.06; }
+.ps-sub{ margin:8px 0 0; font-size:14px; color:var(--ps-ink-2); max-width:52ch; }
+.ps-action{ border:0; border-radius:11px; padding:12px 20px; font:inherit; font-size:13.5px; font-weight:600;
+  color:#fff; cursor:pointer; background:linear-gradient(150deg,#1a6fa9,#134d78);
+  box-shadow:inset 0 1px 0 rgba(234,242,250,.14); white-space:nowrap; }
+.ps-action:hover:not(:disabled){ background:linear-gradient(150deg,#2183c4,#175a8c); }
 .ps-action:disabled{ opacity:.55; cursor:default; }
 
-.st-card{ background:var(--ps-panel); border:1px solid var(--ps-line); border-radius:12px; margin-bottom:18px; overflow:hidden; }
-.st-h{ padding:18px 22px; border-bottom:1px solid var(--ps-line-soft); }
-.st-h h2{ margin:0; font-family:var(--ps-serif); font-size:20px; font-weight:500; }
-.st-h p{ margin:4px 0 0; font-size:13px; color:var(--ps-ink-2); }
+.st-card{ border:1px solid var(--ps-line); border-radius:16px; margin-bottom:18px; overflow:hidden;
+  background:linear-gradient(160deg,rgba(19,34,52,.78),rgba(11,20,33,.78)); }
+.st-h{ padding:19px 22px; border-bottom:1px solid var(--ps-line-soft); }
+.st-h h2{ margin:0; font-family:var(--ps-serif); font-size:19px; font-weight:600; }
+.st-h p{ margin:5px 0 0; font-size:13px; color:var(--ps-ink-2); }
 .st-grid{ padding:20px 22px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-.st-f{ display:flex; flex-direction:column; gap:5px; }
+.st-f{ display:flex; flex-direction:column; gap:6px; }
 .st-f > span{ font-size:12.5px; font-weight:600; color:var(--ps-ink-2); }
-.st-f input, .st-f select, .st-f textarea{ padding:10px 12px; border:1px solid var(--ps-line); border-radius:8px;
+.st-f input, .st-f select, .st-f textarea{ padding:11px 13px; border:1px solid var(--ps-line); border-radius:9px;
   font:inherit; font-size:13.5px; color:var(--ps-ink); background:var(--ps-panel); }
+.st-f input:focus, .st-f select:focus, .st-f textarea:focus{ outline:none; border-color:var(--ps-blue);
+  box-shadow:0 0 0 3px rgba(69,176,238,.14); }
 .st-f textarea{ resize:vertical; }
 .st-f em{ font-style:normal; font-size:11.5px; color:var(--ps-faint); }
 .st-wide{ grid-column:1 / -1; }
 .st-foot{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
 .st-note{ font-size:12.5px; color:var(--ps-faint); }
-.ps-root :focus-visible{ outline:2px solid var(--ps-blue); outline-offset:2px; border-radius:6px; }
-@media (max-width:760px){ .st-grid{ grid-template-columns:1fr; } .ps-bar-in{ height:80px; } .ps-logo{ height:50px; } }
+.ps-root :focus-visible{ outline:2px solid var(--ps-blue); outline-offset:2px; border-radius:8px; }
+@media (pointer:coarse){
+  .st-f input, .st-f select, .st-f textarea{ font-size:16px; min-height:48px; }
+  .ps-action{ min-height:48px; }
+}
+@media (max-width:760px){
+  .st-grid{ grid-template-columns:1fr; padding:16px; }
+  .ps-wrap{ padding:0 16px; }
+  .ps-bar-in{ height:74px; gap:12px; }
+  .ps-logo{ height:44px; }
+  .ps-title{ font-size:26px; }
+  .ps-head{ padding:26px 0 18px; }
+}
 `;

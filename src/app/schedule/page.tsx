@@ -796,5 +796,31 @@ const SCHED_CSS = `
   .ps-bar-in{ height:78px; gap:14px; }
   .ps-logo{ height:48px; }
 }
+@media (max-width:560px){
+  .ps-wrap{ padding:0 14px; }
+  .ps-bar-in{ height:66px; gap:10px; }
+  .ps-logo{ height:40px; }
+  .ps-rule{ display:none; }
+  .ps-head{ padding:22px 0 16px; }
+  .ps-title{ font-size:25px; }
+  .ps-overview{ grid-template-columns:1fr 1fr; }
+  .ps-cell{ padding:14px 15px; }
+  .ps-cell-v{ font-size:22px; }
+  .ps-day{ min-height:52px; padding:6px; }
+  .ps-daynum{ font-size:11px; }
+  .ps-legend{ gap:10px; padding:8px 12px; }
+  .ps-legend span{ font-size:10px; }
+  .ps-monthnav{ width:100%; justify-content:space-between; }
+  .sm-actions{ grid-template-columns:1fr; }
+  .ps-sheet-f{ flex-wrap:wrap; }
+  .ps-sheet-f .ps-action{ flex:1; }
+}
+@media (pointer:coarse){
+  .ps-chip, .sm-act, .ps-danger{ min-height:46px; }
+  .ps-action{ min-height:48px; }
+  .ps-f input, .ps-f select, .ps-f textarea{ font-size:16px; }
+  .wp-days button, .wp-slots button, .wp-dur button{ min-height:44px; }
+  .ps-appt{ padding:16px; }
+}
 @media (prefers-reduced-motion: reduce){ .ps-root *{ transition:none !important; } }
 `;

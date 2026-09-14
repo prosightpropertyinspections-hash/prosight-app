@@ -49,7 +49,7 @@ export default function PWA() {
       <style>{PWA_CSS}</style>
       <img src="/icons/icon-192.png" alt="" />
       <div className="pwa-t">
-        <strong>Install ProSight</strong>
+        <strong>Install ProSight Studio</strong>
         <span>{ios
           ? "Tap Share, then Add to Home Screen."
           : "Add it to your home screen and it opens like an app, full screen."}</span>

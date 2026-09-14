@@ -4,8 +4,8 @@ import type { MetadataRoute } from "next";
    so nothing has to be added to the document head by hand. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "ProSight Report Studio",
-    short_name: "ProSight",
+    name: "ProSight Studio",
+    short_name: "ProSight Studio",
     description: "Write, photograph and deliver home inspection reports.",
     id: "/",
     start_url: "/",

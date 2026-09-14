@@ -426,5 +426,33 @@ const UX_CSS = `
   .ux-logo{ height:48px; }
   .ux-title{ font-size:28px; }
 }
+@media (max-width:560px){
+  .ux-wrap{ padding:0 14px; }
+  .ux-bar-in{ height:66px; gap:10px; }
+  .ux-logo{ height:40px; }
+  .ux-rule{ display:none; }
+  .ux-nav{ gap:12px; }
+  .ux-head{ padding:22px 0 18px; }
+  .ux-title{ font-size:24px; }
+  .ux-sub{ font-size:13px; }
+  .ux-cta{ width:100%; }
+  .ux-cta span{ text-align:center; }
+  .ux-stats{ grid-template-columns:1fr 1fr; }
+  .ux-cell{ padding:14px 15px; }
+  .ux-v{ font-size:24px; }
+  .ux-search{ max-width:none; flex:1 1 100%; }
+  .ux-open{ flex-wrap:wrap; padding:14px 14px 10px; gap:9px; }
+  .ux-addr{ font-size:15.5px; white-space:normal; }
+  .ux-meta{ flex-wrap:wrap; font-size:12px; }
+  .ux-acts{ width:100%; padding:0 14px 13px; }
+  .ux-acts button{ flex:1; }
+  .ux-sheet-f{ flex-direction:column-reverse; }
+  .ux-sheet-f button{ width:100%; }
+}
+@media (pointer:coarse){
+  .ux-chip, .ux-acts button, .ux-copyrow button{ min-height:46px; }
+  .ux-cta span{ padding:14px 22px; }
+  .ux-search input, .ux-f input{ font-size:16px; }
+}
 @media (prefers-reduced-motion: reduce){ .ux *{ transition:none !important; } }
 `;
