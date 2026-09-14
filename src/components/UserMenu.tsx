@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase-browser";
 
 /* Account menu. Business details live behind this rather than in a settings
    page nobody finds, because they are entered once and then forgotten. */
-export default function UserMenu({ compact = false }: { compact?: boolean }) {
+export default function UserMenu({ compact = false, dark = false }: { compact?: boolean; dark?: boolean }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const ref = useRef<HTMLDivElement | null>(null);
@@ -34,7 +34,7 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
   const initial = (email || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <div className="um" ref={ref}>
+    <div className="um" data-dark={dark ? "1" : "0"} ref={ref}>
       <style>{UM_CSS}</style>
 
       <button className="um-btn" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open}
@@ -73,6 +73,20 @@ export default function UserMenu({ compact = false }: { compact?: boolean }) {
 
 const UM_CSS = `
 .um{ position:relative; }
+/* Dark variant for the dark shell — same component, different surface. */
+.um[data-dark="1"] .um-btn{ background:#0f1a2a; border-color:#1d3048; }
+.um[data-dark="1"] .um-btn:hover{ border-color:#2a4767; }
+.um[data-dark="1"] .um-av{ background:linear-gradient(150deg,#45b0ee,#1d6fa8); }
+.um[data-dark="1"] .um-pop{ background:linear-gradient(160deg,#132234,#0b1421); border-color:#1d3048;
+  box-shadow:0 26px 60px -18px rgba(0,0,0,.9); }
+.um[data-dark="1"] .um-who{ border-bottom-color:#1d3048; }
+.um[data-dark="1"] .um-mail{ color:#a8bbd0; }
+.um[data-dark="1"] .um-item:hover{ background:rgba(69,176,238,.08); }
+.um[data-dark="1"] .um-i-t{ color:#eaf2fa; }
+.um[data-dark="1"] .um-i-s{ color:#6d8199; }
+.um[data-dark="1"] .um-sep{ background:#1d3048; }
+.um[data-dark="1"] .um-out .um-i-t{ color:#ff8f85; }
+.um[data-dark="1"] .um-car{ color:#6d8199; }
 .um-btn{ display:flex; align-items:center; gap:6px; padding:4px 8px 4px 4px; border:1px solid #e4e8ee;
          border-radius:999px; background:#fff; cursor:pointer; font:inherit; }
 .um-btn:hover{ border-color:#cdd6e0; }

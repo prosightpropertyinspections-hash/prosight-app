@@ -744,9 +744,13 @@ function EquipmentPage({t,report,rows,pageBase,reportNo,pageNo,biz}:any){
       {/* A life-stage bar per system reads faster than the numbers beside it. */}
       <div style={{marginTop:22}}>
         <div style={{fontFamily:t.displayFont,fontSize:13,fontWeight:700,marginBottom:9}}>Where each system sits in its expected life</div>
-        {rows.filter((r:EquipRow)=>serviceLifeFor(r) && ageOf(r,asOf)!==null).map((r:EquipRow)=>{
+        {rows.map((r:EquipRow)=>{
+          /* Narrowed here rather than in a filter: the filter proves it to a
+             reader but not to the compiler, and the production build type-checks
+             even though the dev server does not. */
           const life = serviceLifeFor(r);
-          const age = ageOf(r, asOf) || 0;
+          const age = ageOf(r, asOf);
+          if(!life || age === null) return null;
           const pctRaw = (age / life) * 100;
           const pct = Math.max(3, Math.min(100, pctRaw));
           const band = lifeBand(r, asOf);

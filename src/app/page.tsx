@@ -5,7 +5,6 @@ import AuthGate from "@/components/AuthGate";
 import UserMenu from "@/components/UserMenu";
 import Intake from "@/components/Intake";
 import { listReports, deleteReport, updateReport } from "@/lib/data";
-import { createClient } from "@/lib/supabase-browser";
 import type { Report } from "@/lib/types";
 
 function fmtDate(iso: string | null) {
@@ -41,6 +40,7 @@ function Dashboard() {
     const d = new Date(r.created_at), n = new Date();
     return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
   }).length;
+  const donePct = reports.length ? Math.round((done / reports.length) * 100) : 0;
 
   const filtered = useMemo(() => reports.filter(r => {
     if (filter === "draft" && r.status === "done") return false;
@@ -55,281 +55,133 @@ function Dashboard() {
     }
   }
 
-  const donePct = reports.length ? Math.round((done / reports.length) * 100) : 0;
-
   return (
-    <div className="ps-root">
+    <div className="ux">
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-      <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      <style>{UX_CSS}</style>
 
-      <style>{`
-        .ps-root{
-          --ps-paper:#f6f8fa; --ps-panel:#ffffff; --ps-navy:#101a26;
-          --ps-blue:#2f7fd0; --ps-amber:#c0813a; --ps-green:#2f9d6b;
-          --ps-line:#e4e8ee; --ps-line-soft:#eef1f5;
-          --ps-ink:#16202b; --ps-ink-2:#475569; --ps-faint:#8a97a6;
-          --ps-serif:"Newsreader",Georgia,"Times New Roman",serif;
-          background:var(--ps-paper); min-height:100vh; color:var(--ps-ink);
-        }
-        .ps-wrap{ max-width:1080px; margin:0 auto; padding:0 24px; }
+      {/* light bleeding in from the top, so the page has a source */}
+      <div className="ux-glow" aria-hidden />
 
-        .ps-bar{ background:var(--ps-panel); border-bottom:1px solid var(--ps-line); position:sticky; top:0; z-index:30; }
-        .ps-bar-in{ display:flex; align-items:center; gap:20px; height:112px; }
-        .ps-logo{ height:76px; width:auto; display:block; }
-        .ps-rule{ width:1px; height:40px; background:var(--ps-line); }
-        .ps-navlink{ font-size:13.5px; color:var(--ps-ink-2); text-decoration:none; padding:6px 2px; }
-        .ps-navlink[data-on="1"]{ color:var(--ps-ink); font-weight:650; box-shadow:inset 0 -2px 0 var(--ps-navy); }
-        .ps-share{ padding:7px 12px; font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; border:1px solid var(--ps-line); border-radius:8px; background:var(--ps-panel); color:var(--ps-ink); }
-        .ps-share:hover{ border-color:var(--ps-blue); color:var(--ps-blue); }
-        .sh-field{ margin-bottom:14px; }
-        .sh-field > span{ display:block; font-size:12.5px; font-weight:600; color:var(--ps-ink-2); margin-bottom:5px; }
-        .sh-row{ display:flex; gap:8px; }
-        .sh-row input{ flex:1; min-width:0; padding:9px 11px; border:1px solid var(--ps-line); border-radius:8px; font:inherit; font-size:13.5px; background:var(--ps-panel); color:var(--ps-ink); }
-        .sh-pw input{ font-size:17px; font-weight:700; letter-spacing:2px; }
-        .sh-note{ padding:12px 14px; background:#f8fafc; border:1px solid var(--ps-line-soft); border-radius:9px; font-size:12.5px; color:var(--ps-ink-2); }
-        .ps-edit{ padding:7px 12px; font:inherit; font-size:12.5px; cursor:pointer; border:1px solid var(--ps-line); border-radius:8px; background:var(--ps-panel); color:var(--ps-ink-2); }
-        .ps-edit:hover{ border-color:#cdd6e0; color:var(--ps-ink); }
-        .ps-modal{ position:fixed; inset:0; background:rgba(16,26,38,.5); z-index:60; display:grid; place-items:center; padding:20px; }
-        .ps-sheet{ width:100%; max-width:560px; background:var(--ps-panel); border-radius:14px; box-shadow:0 24px 60px rgba(16,26,38,.28); overflow:hidden; }
-        .ps-sheet-h{ display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-bottom:1px solid var(--ps-line-soft); }
-        .ps-sheet-h h2{ margin:0; font-family:var(--ps-serif); font-size:20px; font-weight:500; }
-        .ps-x{ border:0; background:transparent; font-size:16px; color:var(--ps-faint); cursor:pointer; }
-        .ps-form{ padding:20px 22px; display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-        .ps-f{ display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:var(--ps-ink-2); font-weight:600; }
-        .ps-f input{ padding:9px 11px; border:1px solid var(--ps-line); border-radius:8px; font:inherit; font-size:13.5px; color:var(--ps-ink); background:var(--ps-panel); font-weight:400; }
-        .ps-wide{ grid-column:1 / -1; }
-        .ps-sheet-f{ display:flex; gap:10px; justify-content:flex-end; padding:16px 22px; border-top:1px solid var(--ps-line-soft); }
-
-        .ps-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; padding:34px 0 20px; }
-        .ps-title{ font-family:var(--ps-serif); font-size:32px; font-weight:500; letter-spacing:-.015em; margin:0; line-height:1.1; }
-        .ps-sub{ margin:6px 0 0; font-size:14px; color:var(--ps-ink-2); max-width:46ch; }
-
-        .ps-action{
-          background:var(--ps-navy); color:#fff; border:0; border-radius:9px;
-          padding:11px 18px; font:inherit; font-size:13.5px; font-weight:600; cursor:pointer;
-        }
-        .ps-action:hover{ background:#1b2a3a; }
-
-        /* One panel with internal divisions rather than four floating tiles —
-           the counts belong to the same record set, so they read as one object. */
-        .ps-overview{
-          background:var(--ps-panel); border:1px solid var(--ps-line); border-radius:12px;
-          display:grid; grid-template-columns:1.15fr 1fr 1fr 1fr; overflow:hidden; margin-bottom:26px;
-        }
-        .ps-cell{ padding:18px 22px; border-left:1px solid var(--ps-line-soft); }
-        .ps-cell:first-child{ border-left:0; }
-        .ps-cell-l{ font-size:12px; color:var(--ps-faint); letter-spacing:.01em; }
-        .ps-cell-v{ font-family:var(--ps-serif); font-size:27px; font-weight:500; line-height:1.15; margin-top:3px; }
-        .ps-meter{ height:5px; border-radius:3px; background:var(--ps-line-soft); overflow:hidden; margin-top:12px; display:flex; }
-        .ps-meter i{ display:block; height:100%; }
-
-        .ps-tools{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-        .ps-search{
-          flex:1; min-width:220px; max-width:360px; padding:9px 12px; font:inherit; font-size:13.5px;
-          border:1px solid var(--ps-line); border-radius:9px; background:var(--ps-panel); color:var(--ps-ink);
-        }
-        .ps-search::placeholder{ color:var(--ps-faint); }
-        .ps-chip{
-          padding:8px 14px; font:inherit; font-size:12.5px; font-weight:600; cursor:pointer;
-          border-radius:8px; border:1px solid var(--ps-line); background:var(--ps-panel); color:var(--ps-ink-2);
-        }
-        .ps-chip[data-on="1"]{ background:var(--ps-navy); border-color:var(--ps-navy); color:#fff; }
-
-        .ps-list{ background:var(--ps-panel); border:1px solid var(--ps-line); border-radius:12px; overflow:hidden; }
-        .ps-row{ display:flex; align-items:center; gap:16px; border-top:1px solid var(--ps-line-soft); }
-        .ps-row:first-child{ border-top:0; }
-        .ps-row:hover{ background:#fbfcfd; }
-        .ps-rail{ width:3px; align-self:stretch; flex-shrink:0; }
-        .ps-link{ flex:1; min-width:0; display:flex; align-items:center; gap:16px; padding:16px 4px 16px 17px; color:inherit; text-decoration:none; }
-        .ps-addr{ font-family:var(--ps-serif); font-size:18px; font-weight:500; letter-spacing:-.005em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .ps-meta{ font-size:12.5px; color:var(--ps-ink-2); margin-top:2px; }
-        .ps-secs{ font-size:12.5px; color:var(--ps-faint); white-space:nowrap; }
-        .ps-pill{ font-size:11.5px; font-weight:600; padding:4px 11px; border-radius:20px; white-space:nowrap; }
-        .ps-del{
-          padding:7px 12px; font:inherit; font-size:12.5px; cursor:pointer; margin-right:16px;
-          border:1px solid transparent; border-radius:8px; background:transparent; color:var(--ps-faint);
-        }
-        .ps-del:hover{ border-color:#e8d2d2; color:#b4453c; background:#fdf6f6; }
-
-        .ps-empty{ background:var(--ps-panel); border:1px dashed #d6dde6; border-radius:12px; padding:64px 24px; text-align:center; }
-        .ps-empty h3{ font-family:var(--ps-serif); font-size:21px; font-weight:500; margin:0 0 6px; }
-        .ps-empty p{ margin:0 auto 20px; font-size:14px; color:var(--ps-ink-2); max-width:44ch; }
-
-        .ps-root :focus-visible{ outline:2px solid var(--ps-blue); outline-offset:2px; border-radius:6px; }
-
-        @media (max-width:820px){
-          .ps-overview{ grid-template-columns:1fr 1fr; }
-          .ps-cell:nth-child(3){ border-left:0; }
-          .ps-cell:nth-child(n+3){ border-top:1px solid var(--ps-line-soft); }
-          .ps-secs{ display:none; }
-          .ps-title{ font-size:27px; }
-        }
-        @media (max-width:560px){
-          .ps-logo{ height:50px; }
-          .ps-bar-in{ height:80px; gap:12px; }
-        }
-        @media (prefers-reduced-motion: reduce){ .ps-root *{ transition:none !important; animation:none !important; } }
-      `}</style>
-
-      <header className="ps-bar">
-        <div className="ps-wrap ps-bar-in">
-          <img className="ps-logo" src="/logo.svg" alt="ProSight Property Inspections" />
-          <div className="ps-rule" />
-          <Link href="/" className="ps-navlink" data-on="1">Reports</Link>
-          <Link href="/schedule" className="ps-navlink">Schedule</Link>
+      <header className="ux-bar">
+        <div className="ux-wrap ux-bar-in">
+          <img className="ux-logo" src="/logo-ondark.svg" alt="ProSight Property Inspections" />
+          <span className="ux-rule" />
+          <nav className="ux-nav">
+            <Link href="/" data-on="1">Reports</Link>
+            <Link href="/schedule">Schedule</Link>
+          </nav>
           <div style={{ flex: 1 }} />
-          <UserMenu />
+          <UserMenu dark />
         </div>
       </header>
 
-      <div className="ps-wrap" style={{ paddingBottom: 90 }}>
-        <div className="ps-head">
+      <main className="ux-wrap ux-main">
+        <div className="ux-head">
           <div>
-            <h1 className="ps-title">Inspection reports</h1>
-            <p className="ps-sub">Every property you've inspected, with its findings, photos and grade.</p>
+            <div className="ux-kicker">ProSight Report Studio</div>
+            <h1 className="ux-title">Inspection reports</h1>
+            <p className="ux-sub">Every property you've inspected, with its findings, photographs and grade.</p>
           </div>
-          <button className="ps-action" onClick={() => setShowIntake(true)}>Start a new report</button>
+          <button className="ux-cta" onClick={() => setShowIntake(true)}>
+            <span>Start a new report</span>
+          </button>
         </div>
 
-        <div className="ps-overview">
-          <div className="ps-cell">
-            <div className="ps-cell-l">Properties on file</div>
-            <div className="ps-cell-v">{reports.length}</div>
-            <div className="ps-meter" aria-hidden>
-              <i style={{ width: `${donePct}%`, background: "var(--ps-green)" }} />
-              <i style={{ width: `${100 - donePct}%`, background: "var(--ps-amber)" }} />
+        <section className="ux-stats">
+          <div className="ux-cell ux-cell-lead">
+            <div className="ux-l">Properties on file</div>
+            <div className="ux-v">{reports.length}</div>
+            <div className="ux-meter" aria-hidden>
+              <i style={{ width: `${donePct}%`, background: "linear-gradient(90deg,#3fd39b,#2fae82)" }} />
+              <i style={{ width: `${100 - donePct}%`, background: "linear-gradient(90deg,#f0b429,#d79a1c)" }} />
             </div>
           </div>
-          <div className="ps-cell">
-            <div className="ps-cell-l">In progress</div>
-            <div className="ps-cell-v" style={{ color: "var(--ps-amber)" }}>{drafts}</div>
+          <div className="ux-cell">
+            <div className="ux-l">In progress</div>
+            <div className="ux-v" style={{ color: "#f0b429" }}>{drafts}</div>
           </div>
-          <div className="ps-cell">
-            <div className="ps-cell-l">Delivered</div>
-            <div className="ps-cell-v" style={{ color: "var(--ps-green)" }}>{done}</div>
+          <div className="ux-cell">
+            <div className="ux-l">Delivered</div>
+            <div className="ux-v" style={{ color: "#3fd39b" }}>{done}</div>
           </div>
-          <div className="ps-cell">
-            <div className="ps-cell-l">Added this month</div>
-            <div className="ps-cell-v">{month}</div>
+          <div className="ux-cell">
+            <div className="ux-l">Added this month</div>
+            <div className="ux-v">{month}</div>
           </div>
-        </div>
+        </section>
 
         {loading ? (
-          <div style={{ padding: 60, textAlign: "center", color: "var(--ps-faint)" }}>Loading your reports…</div>
+          <div className="ux-quiet">Loading your reports…</div>
         ) : reports.length === 0 ? (
-          <div className="ps-empty">
+          <div className="ux-empty">
             <h3>No reports yet</h3>
             <p>Answer a few questions about the property and the section structure is built for you.</p>
-            <button className="ps-action" onClick={() => setShowIntake(true)}>Start your first report</button>
+            <button className="ux-cta" onClick={() => setShowIntake(true)}><span>Start your first report</span></button>
           </div>
         ) : (
           <>
-            <div className="ps-tools">
-              <input className="ps-search" placeholder="Search by address or client"
-                value={q} onChange={e => setQ(e.target.value)} />
+            <div className="ux-tools">
+              <div className="ux-search">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
+                </svg>
+                <input placeholder="Search by address or client" value={q} onChange={e => setQ(e.target.value)} />
+              </div>
               {([["all", "All"], ["draft", "In progress"], ["done", "Delivered"]] as [Filter, string][]).map(([k, l]) => (
-                <button key={k} className="ps-chip" data-on={filter === k ? "1" : "0"} onClick={() => setFilter(k)}>{l}</button>
+                <button key={k} className="ux-chip" data-on={filter === k ? "1" : "0"} onClick={() => setFilter(k)}>{l}</button>
               ))}
             </div>
 
-            <div className="ps-list">
+            <div className="ux-list">
               {filtered.map(r => {
                 const isDone = r.status === "done";
                 const secs = (r as any).section_count || 0;
+                const tone = isDone ? "#3fd39b" : "#f0b429";
                 return (
-                  <div key={r.id} className="ps-row">
-                    <div className="ps-rail" style={{ background: isDone ? "var(--ps-green)" : "var(--ps-amber)" }} />
-                    <Link href={`/report/${r.id}`} className="ps-link">
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="ps-addr">{r.address || "Untitled property"}</div>
-                        <div className="ps-meta">{r.client || "No client named"} · {fmtDate(r.inspection_date)}</div>
+                  <article key={r.id} className="ux-row">
+                    <span className="ux-rail" style={{ background: `linear-gradient(180deg, ${tone}, ${tone}22)` }} />
+                    <Link href={`/report/${r.id}`} className="ux-open">
+                      <div className="ux-addr-wrap">
+                        <div className="ux-addr">{r.address || "Untitled property"}</div>
+                        <div className="ux-meta">
+                          {r.client || "No client named"}
+                          <span className="ux-dot" />{fmtDate(r.inspection_date)}
+                          {secs > 0 && <><span className="ux-dot" />{secs} sections</>}
+                        </div>
                       </div>
-                      {secs > 0 && <div className="ps-secs">{secs} section{secs === 1 ? "" : "s"}</div>}
-                      <span className="ps-pill" style={{
-                        background: isDone ? "rgba(47,157,107,.12)" : "rgba(192,129,58,.13)",
-                        color: isDone ? "var(--ps-green)" : "var(--ps-amber)",
-                      }}>{isDone ? "Delivered" : "In progress"}</span>
+                      <span className="ux-pill" style={{ color: tone, borderColor: `${tone}44`, background: `${tone}14` }}>
+                        <span className="ux-pip" style={{ background: tone, boxShadow: `0 0 8px ${tone}` }} />
+                        {isDone ? "Delivered" : "In progress"}
+                      </span>
                     </Link>
-                    <button className="ps-share" onClick={() => setSharing(r)}>Share</button>
-                    <button className="ps-edit" onClick={() => setEditing(r)}>Edit</button>
-                    <button className="ps-del" onClick={() => del(r)}>Delete</button>
-                  </div>
+                    <div className="ux-acts">
+                      <button onClick={() => setSharing(r)}>Share</button>
+                      <button onClick={() => setEditing(r)}>Edit</button>
+                      <button className="ux-del" onClick={() => del(r)}>Delete</button>
+                    </div>
+                  </article>
                 );
               })}
               {filtered.length === 0 && (
-                <div style={{ padding: 34, textAlign: "center", color: "var(--ps-ink-2)", fontSize: 14 }}>
+                <div className="ux-quiet" style={{ padding: "34px 0" }}>
                   Nothing matches that. Try a different address, or clear the filter.
                 </div>
               )}
             </div>
           </>
         )}
-      </div>
+      </main>
 
       {sharing && <ShareLink report={sharing} onClose={() => setSharing(null)} />}
-
-      {editing && (
-        <EditDetails
-          report={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); refresh(); }}
-        />
-      )}
-
+      {editing && <EditDetails report={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />}
       {showIntake && <Intake onClose={() => { setShowIntake(false); refresh(); }} />}
     </div>
   );
 }
 
-/* Property details are the one thing that gets typed wrong at the door and
-   noticed later, so they stay editable after the report exists. */
-function EditDetails({ report, onClose, onSaved }: { report: Report; onClose: () => void; onSaved: () => void }) {
-  const [address, setAddress] = useState(report.address || "");
-  const [client, setClient] = useState(report.client || "");
-  const [inspector, setInspector] = useState((report as any).inspector || "");
-  const [date, setDate] = useState(report.inspection_date || "");
-  const [saving, setSaving] = useState(false);
-
-  async function submit() {
-    setSaving(true);
-    try {
-      await updateReport(report.id, { address, client, inspector, inspection_date: date || null } as any);
-      onSaved();
-    } catch (e: any) {
-      alert("Could not save: " + (e?.message || e));
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="ps-modal" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="ps-sheet">
-        <div className="ps-sheet-h">
-          <h2>Report details</h2>
-          <button className="ps-x" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        <div className="ps-form">
-          <label className="ps-f ps-wide"><span>Property address</span>
-            <input value={address} onChange={e => setAddress(e.target.value)} placeholder="2799 Amazon St, Dearborn, MI 48120" /></label>
-          <label className="ps-f"><span>Client name</span>
-            <input value={client} onChange={e => setClient(e.target.value)} placeholder="Seth Anderson" /></label>
-          <label className="ps-f"><span>Inspector</span>
-            <input value={inspector} onChange={e => setInspector(e.target.value)} placeholder="Islam" /></label>
-          <label className="ps-f ps-wide"><span>Inspection date</span>
-            <input type="date" value={date || ""} onChange={e => setDate(e.target.value)} /></label>
-        </div>
-        <div className="ps-sheet-f">
-          <button className="ps-chip" onClick={onClose}>Cancel</button>
-          <button className="ps-action" disabled={saving} onClick={submit}>{saving ? "Saving…" : "Save changes"}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* The link and password are wanted at the moment of texting a client, which is
-   not usually while the report is open — so it lives on the list too. */
 function ShareLink({ report, onClose }: { report: Report; onClose: () => void }) {
   const [share, setShare] = useState<any>(null);
   const [busy, setBusy] = useState(true);
@@ -351,52 +203,45 @@ function ShareLink({ report, onClose }: { report: Report; onClose: () => void })
   }, [report.id]);
 
   const link = share ? `${location.origin}/view/${share.code}` : "";
-  function copy(text: string, what: string) {
-    navigator.clipboard.writeText(text);
-    setCopied(what); setTimeout(() => setCopied(""), 1500);
-  }
+  const copy = (text: string, what: string) => {
+    navigator.clipboard.writeText(text); setCopied(what); setTimeout(() => setCopied(""), 1500);
+  };
 
   return (
-    <div className="ps-modal" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="ps-sheet">
-        <div className="ps-sheet-h">
+    <div className="ux-modal" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="ux-sheet">
+        <div className="ux-sheet-h">
           <h2>Share with client</h2>
-          <button className="ps-x" onClick={onClose} aria-label="Close">✕</button>
+          <button className="ux-x" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div style={{ padding: "20px 22px" }}>
-          <p style={{ margin: "0 0 18px", fontSize: 13.5, color: "var(--ps-ink-2)" }}>
-            {report.address || "This property"} — send your client both the link and the password.
-          </p>
-
-          {busy ? <div style={{ padding: 20, color: "var(--ps-faint)", fontSize: 13.5 }}>Preparing the link…</div>
-            : err ? <div style={{ padding: 14, background: "#fdf6f6", border: "1px solid #e8d2d2", borderRadius: 9, color: "#b4453c", fontSize: 13 }}>{err}</div>
-            : (
+        <div className="ux-sheet-b">
+          <p className="ux-note">{report.address || "This property"} — send your client both the link and the password.</p>
+          {busy ? <div className="ux-quiet">Preparing the link…</div>
+            : err ? <div className="ux-err">{err}</div> : (
             <>
-              <div className="sh-field">
-                <span>Link</span>
-                <div className="sh-row">
+              <label className="ux-f"><span>Link</span>
+                <div className="ux-copyrow">
                   <input readOnly value={link} onFocus={e => e.target.select()} />
-                  <button className="ps-chip" onClick={() => copy(link, "link")}>{copied === "link" ? "Copied" : "Copy"}</button>
+                  <button onClick={() => copy(link, "link")}>{copied === "link" ? "Copied" : "Copy"}</button>
                 </div>
-              </div>
-              <div className="sh-field sh-pw">
-                <span>Password</span>
-                <div className="sh-row">
-                  <input readOnly value={share.password} />
-                  <button className="ps-chip" onClick={() => copy(share.password, "pw")}>{copied === "pw" ? "Copied" : "Copy"}</button>
+              </label>
+              <label className="ux-f"><span>Password</span>
+                <div className="ux-copyrow">
+                  <input readOnly value={share.password} style={{ fontSize: 17, fontWeight: 700, letterSpacing: 2 }} />
+                  <button onClick={() => copy(share.password, "pw")}>{copied === "pw" ? "Copied" : "Copy"}</button>
                 </div>
-              </div>
-              <div className="sh-note">
-                Anyone with both the link and the password can open this report. {share.views || 0} view{(share.views || 0) === 1 ? "" : "s"} so far.
+              </label>
+              <div className="ux-hint">
+                Anyone with both can open this report. {share.views || 0} view{(share.views || 0) === 1 ? "" : "s"} so far.
               </div>
             </>
           )}
         </div>
-        <div className="ps-sheet-f">
-          <button className="ps-chip" onClick={onClose}>Close</button>
+        <div className="ux-sheet-f">
+          <button className="ux-chip" onClick={onClose}>Close</button>
           {share && (
-            <button className="ps-action" onClick={() => copy(`${link}\nPassword: ${share.password}`, "both")}>
-              {copied === "both" ? "Copied" : "Copy link and password"}
+            <button className="ux-cta" onClick={() => copy(`${link}\nPassword: ${share.password}`, "both")}>
+              <span>{copied === "both" ? "Copied" : "Copy link and password"}</span>
             </button>
           )}
         </div>
@@ -404,3 +249,182 @@ function ShareLink({ report, onClose }: { report: Report; onClose: () => void })
     </div>
   );
 }
+
+function EditDetails({ report, onClose, onSaved }: { report: Report; onClose: () => void; onSaved: () => void }) {
+  const [address, setAddress] = useState(report.address || "");
+  const [client, setClient] = useState(report.client || "");
+  const [inspector, setInspector] = useState((report as any).inspector || "");
+  const [date, setDate] = useState(report.inspection_date || "");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    setSaving(true);
+    try {
+      await updateReport(report.id, { address, client, inspector, inspection_date: date || null } as any);
+      onSaved();
+    } catch (e: any) { alert("Could not save: " + (e?.message || e)); setSaving(false); }
+  }
+
+  return (
+    <div className="ux-modal" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="ux-sheet">
+        <div className="ux-sheet-h">
+          <h2>Report details</h2>
+          <button className="ux-x" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="ux-sheet-b ux-grid">
+          <label className="ux-f ux-wide"><span>Property address</span>
+            <input value={address} onChange={e => setAddress(e.target.value)} placeholder="2799 Amazon St, Dearborn, MI 48120" /></label>
+          <label className="ux-f"><span>Client name</span>
+            <input value={client} onChange={e => setClient(e.target.value)} placeholder="Seth Anderson" /></label>
+          <label className="ux-f"><span>Inspector</span>
+            <input value={inspector} onChange={e => setInspector(e.target.value)} placeholder="Islam" /></label>
+          <label className="ux-f ux-wide"><span>Inspection date</span>
+            <input type="date" value={date || ""} onChange={e => setDate(e.target.value)} /></label>
+        </div>
+        <div className="ux-sheet-f">
+          <button className="ux-chip" onClick={onClose}>Cancel</button>
+          <button className="ux-cta" disabled={saving} onClick={submit}><span>{saving ? "Saving…" : "Save changes"}</span></button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const UX_CSS = `
+.ux{
+  --ux-bg:#070d16; --ux-panel:#0f1a2a; --ux-panel-2:#132234; --ux-line:#1d3048;
+  --ux-ink:#eaf2fa; --ux-ink-2:#a8bbd0; --ux-faint:#6d8199;
+  --ux-blue:#45b0ee; --ux-green:#3fd39b; --ux-amber:#f0b429; --ux-red:#ff6b5e;
+  --ux-display:"Sora","Helvetica Neue",sans-serif;
+  position:relative; min-height:100vh; background:var(--ux-bg); color:var(--ux-ink);
+  font-family:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
+}
+.ux-glow{ position:absolute; top:-320px; left:50%; transform:translateX(-50%);
+  width:1200px; height:640px; pointer-events:none;
+  background:radial-gradient(ellipse at 50% 50%, rgba(69,176,238,.16), transparent 66%); filter:blur(30px); }
+.ux-wrap{ position:relative; max-width:1120px; margin:0 auto; padding:0 26px; }
+
+.ux-bar{ position:sticky; top:0; z-index:30; background:rgba(7,13,22,.82);
+  backdrop-filter:blur(14px); border-bottom:1px solid var(--ux-line); }
+.ux-bar-in{ display:flex; align-items:center; gap:20px; height:108px; }
+.ux-logo{ height:72px; width:auto; display:block; }
+.ux-rule{ width:1px; height:38px; background:var(--ux-line); }
+.ux-nav{ display:flex; gap:18px; }
+.ux-nav a{ font-size:13.5px; color:var(--ux-ink-2); text-decoration:none; padding:8px 2px; position:relative; }
+.ux-nav a:hover{ color:var(--ux-ink); }
+.ux-nav a[data-on="1"]{ color:var(--ux-ink); font-weight:600; }
+.ux-nav a[data-on="1"]::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:2px;
+  border-radius:2px; background:linear-gradient(90deg,var(--ux-blue),transparent); }
+
+.ux-main{ padding-bottom:110px; }
+.ux-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; padding:44px 0 26px; }
+.ux-kicker{ font-size:9.5px; letter-spacing:3.4px; text-transform:uppercase; color:var(--ux-blue); margin-bottom:9px; }
+.ux-title{ font-family:var(--ux-display); font-size:36px; font-weight:600; letter-spacing:-1px; margin:0; line-height:1.05; }
+.ux-sub{ margin:9px 0 0; font-size:14px; color:var(--ux-ink-2); max-width:48ch; }
+
+.ux-cta{ position:relative; border:0; cursor:pointer; border-radius:11px; padding:1px;
+  background:linear-gradient(140deg,var(--ux-blue),#1d6fa8); font:inherit; }
+.ux-cta span{ display:block; padding:11px 20px; border-radius:10px; font-size:13.5px; font-weight:600; color:#fff;
+  background:linear-gradient(150deg,#1a6fa9,#134d78); }
+.ux-cta:hover span{ background:linear-gradient(150deg,#2183c4,#175a8c); }
+.ux-cta:disabled{ opacity:.55; cursor:default; }
+
+.ux-stats{ display:grid; grid-template-columns:1.2fr 1fr 1fr 1fr; border:1px solid var(--ux-line);
+  border-radius:16px; overflow:hidden; margin-bottom:26px;
+  background:linear-gradient(160deg,rgba(19,34,52,.9),rgba(11,20,33,.9)); }
+.ux-cell{ padding:20px 22px; border-left:1px solid var(--ux-line); }
+.ux-cell:first-child{ border-left:0; }
+.ux-l{ font-size:11.5px; color:var(--ux-faint); }
+.ux-v{ font-family:var(--ux-display); font-size:30px; font-weight:600; line-height:1.15; margin-top:4px; }
+.ux-meter{ display:flex; height:5px; border-radius:3px; overflow:hidden; margin-top:13px; background:var(--ux-line); }
+.ux-meter i{ display:block; height:100%; }
+
+.ux-tools{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+.ux-search{ position:relative; display:flex; align-items:center; gap:9px; flex:1; min-width:230px; max-width:380px;
+  padding:0 13px; border:1px solid var(--ux-line); border-radius:10px; background:var(--ux-panel); color:var(--ux-faint); }
+.ux-search input{ flex:1; padding:11px 0; border:0; background:transparent; color:var(--ux-ink); font:inherit; font-size:13.5px; outline:none; }
+.ux-search input::placeholder{ color:var(--ux-faint); }
+.ux-search:focus-within{ border-color:var(--ux-blue); box-shadow:0 0 0 3px rgba(69,176,238,.14); }
+.ux-chip{ padding:9px 15px; border:1px solid var(--ux-line); border-radius:9px; background:var(--ux-panel);
+  color:var(--ux-ink-2); font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; }
+.ux-chip:hover{ border-color:#2a4767; color:var(--ux-ink); }
+.ux-chip[data-on="1"]{ color:#fff; border-color:rgba(69,176,238,.55);
+  background:linear-gradient(150deg,rgba(69,176,238,.24),rgba(69,176,238,.08));
+  box-shadow:0 0 18px -6px rgba(69,176,238,.7); }
+
+.ux-list{ display:flex; flex-direction:column; gap:10px; }
+.ux-row{ position:relative; display:flex; align-items:center; gap:14px; overflow:hidden;
+  border:1px solid var(--ux-line); border-radius:13px;
+  background:linear-gradient(150deg,rgba(19,34,52,.72),rgba(11,20,33,.72));
+  transition:border-color .16s, transform .16s, box-shadow .16s; }
+.ux-row:hover{ border-color:#2a4767; transform:translateY(-1px); box-shadow:0 14px 30px -18px rgba(0,0,0,.9); }
+.ux-rail{ width:3px; align-self:stretch; flex-shrink:0; }
+.ux-open{ flex:1; min-width:0; display:flex; align-items:center; gap:16px; padding:17px 6px 17px 17px;
+  color:inherit; text-decoration:none; }
+.ux-addr-wrap{ flex:1; min-width:0; }
+.ux-addr{ font-family:var(--ux-display); font-size:17px; font-weight:600; letter-spacing:-.3px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ux-meta{ display:flex; align-items:center; font-size:12.5px; color:var(--ux-ink-2); margin-top:4px; }
+.ux-dot{ width:3px; height:3px; border-radius:50%; background:var(--ux-faint); margin:0 8px; flex-shrink:0; }
+.ux-pill{ display:inline-flex; align-items:center; gap:7px; font-size:11.5px; font-weight:600;
+  padding:5px 12px; border-radius:20px; border:1px solid; white-space:nowrap; }
+.ux-pip{ width:6px; height:6px; border-radius:50%; }
+.ux-acts{ display:flex; gap:7px; padding-right:15px; flex-shrink:0; }
+.ux-acts button{ padding:8px 13px; border:1px solid var(--ux-line); border-radius:9px; background:transparent;
+  color:var(--ux-ink-2); font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; }
+.ux-acts button:hover{ border-color:var(--ux-blue); color:var(--ux-blue); }
+.ux-acts .ux-del{ color:var(--ux-faint); border-color:transparent; }
+.ux-acts .ux-del:hover{ color:var(--ux-red); border-color:rgba(255,107,94,.4); }
+
+.ux-empty{ border:1px dashed #23385230; border-radius:16px; padding:68px 24px; text-align:center;
+  background:linear-gradient(160deg,rgba(19,34,52,.55),rgba(11,20,33,.55)); }
+.ux-empty h3{ font-family:var(--ux-display); font-size:21px; font-weight:600; margin:0 0 7px; }
+.ux-empty p{ margin:0 auto 22px; font-size:14px; color:var(--ux-ink-2); max-width:44ch; }
+.ux-quiet{ padding:52px 0; text-align:center; color:var(--ux-faint); font-size:13.5px; }
+
+.ux-modal{ position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:22px;
+  background:rgba(4,8,14,.72); backdrop-filter:blur(5px); }
+.ux-sheet{ width:100%; max-width:560px; border:1px solid var(--ux-line); border-radius:16px; overflow:hidden;
+  background:linear-gradient(160deg,#132234,#0b1421); box-shadow:0 30px 70px -20px rgba(0,0,0,.9); }
+.ux-sheet-h{ display:flex; align-items:center; justify-content:space-between; padding:19px 22px; border-bottom:1px solid var(--ux-line); }
+.ux-sheet-h h2{ margin:0; font-family:var(--ux-display); font-size:19px; font-weight:600; }
+.ux-x{ border:0; background:transparent; color:var(--ux-faint); font-size:15px; cursor:pointer; }
+.ux-x:hover{ color:var(--ux-ink); }
+.ux-sheet-b{ padding:20px 22px; }
+.ux-grid{ display:grid; grid-template-columns:1fr 1fr; gap:15px; }
+.ux-wide{ grid-column:1 / -1; }
+.ux-f{ display:block; }
+.ux-f > span{ display:block; font-size:12.5px; font-weight:600; color:var(--ux-ink-2); margin-bottom:6px; }
+.ux-f input{ width:100%; padding:11px 13px; border:1px solid var(--ux-line); border-radius:9px;
+  background:var(--ux-panel); color:var(--ux-ink); font:inherit; font-size:13.5px; }
+.ux-f input:focus{ outline:none; border-color:var(--ux-blue); box-shadow:0 0 0 3px rgba(69,176,238,.14); }
+.ux-f + .ux-f{ margin-top:15px; }
+.ux-copyrow{ display:flex; gap:9px; }
+.ux-copyrow button{ padding:0 15px; border:1px solid var(--ux-line); border-radius:9px; background:var(--ux-panel);
+  color:var(--ux-ink-2); font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.ux-copyrow button:hover{ border-color:var(--ux-blue); color:var(--ux-blue); }
+.ux-note{ margin:0 0 18px; font-size:13.5px; color:var(--ux-ink-2); }
+.ux-hint{ margin-top:16px; padding:12px 14px; border:1px solid var(--ux-line); border-radius:10px;
+  background:rgba(69,176,238,.06); font-size:12.5px; color:var(--ux-ink-2); }
+.ux-err{ padding:13px 15px; border:1px solid rgba(255,107,94,.35); border-radius:10px;
+  background:rgba(255,107,94,.08); color:#ff8f85; font-size:13px; }
+.ux-sheet-f{ display:flex; gap:10px; justify-content:flex-end; padding:17px 22px; border-top:1px solid var(--ux-line); }
+
+.ux :focus-visible{ outline:2px solid var(--ux-blue); outline-offset:2px; border-radius:8px; }
+/* The shell's palette is namespaced so it cannot leak into components that use
+   the app's own --ink / --surface variables — a modal opened from here must
+   keep its own colours. */
+@media (max-width:860px){
+  .ux-stats{ grid-template-columns:1fr 1fr; }
+  .ux-cell:nth-child(3){ border-left:0; }
+  .ux-cell:nth-child(n+3){ border-top:1px solid var(--ux-line); }
+  .ux-row{ flex-wrap:wrap; }
+  .ux-acts{ padding:0 15px 15px 20px; }
+  .ux-grid{ grid-template-columns:1fr; }
+  .ux-bar-in{ height:78px; gap:14px; }
+  .ux-logo{ height:48px; }
+  .ux-title{ font-size:28px; }
+}
+@media (prefers-reduced-motion: reduce){ .ux *{ transition:none !important; } }
+`;
