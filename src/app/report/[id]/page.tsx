@@ -202,8 +202,8 @@ function Editor(){
     if(error) alert("Could not save the outlet counts: " + error.message);
   }
 
-  if(loading) return <div style={{display:"grid",placeItems:"center",height:"100vh",color:"var(--muted)"}}>Loading report…</div>;
-  if(!report) return <div style={{display:"grid",placeItems:"center",height:"100vh",gap:12}}><div>Report not found.</div><Link className="btn btn-ghost" href="/">Back to reports</Link></div>;
+  if(loading) return <div style={{display:"grid",placeItems:"center",height:"100vh",background:"var(--surface-2,#f6f8fa)",color:"var(--muted,#667)"}}>Loading report…</div>;
+  if(!report) return <div style={{display:"grid",placeItems:"center",height:"100vh",gap:12,background:"var(--surface-2,#f6f8fa)",color:"var(--ink,#16202b)"}}><div>Report not found.</div><Link className="btn btn-ghost" href="/">Back to reports</Link></div>;
 
   const section=report.sections?.find(s=>s.id===activeSec)||null;
 
@@ -218,7 +218,7 @@ function Editor(){
   }
 
   return (
-    <div style={{height:"100vh",display:"flex",flexDirection:"column"}}>
+    <div style={{height:"100vh",display:"flex",flexDirection:"column",background:"var(--surface-2,#f6f8fa)",color:"var(--ink,#16202b)"}}>
       <style>{`
         .ed-thumb{ width:96px; }
         .ed-tap{ min-height:40px; }
@@ -306,7 +306,7 @@ function Editor(){
           </div>
         </aside>
 
-        <main className="ed-main" style={{flex:1,overflow:"auto",padding:"24px 28px"}}>
+        <main className="ed-main" style={{flex:1,overflow:"auto",padding:"24px 28px",background:"var(--surface-2,#f6f8fa)"}}>
           {activeSec===OUTLETS ? (
             <OutletEditor
               value={(()=>{ 
