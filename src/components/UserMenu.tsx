@@ -2,18 +2,25 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
+import { loadProfile, avatarUrl } from "@/lib/profile";
 
 /* Account menu. Business details live behind this rather than in a settings
    page nobody finds, because they are entered once and then forgotten. */
 export default function UserMenu({ compact = false, dark = false }: { compact?: boolean; dark?: boolean }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [photo, setPhoto] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await createClient().auth.getUser();
+      const sb = createClient();
+      const { data: { user } } = await sb.auth.getUser();
       setEmail(user?.email || "");
+      try {
+        const p = await loadProfile(sb);
+        setPhoto(await avatarUrl(sb, p.avatar_path));
+      } catch {}
     })();
   }, []);
 
@@ -39,14 +46,14 @@ export default function UserMenu({ compact = false, dark = false }: { compact?: 
 
       <button className="um-btn" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open}
         title={email || "Account"}>
-        <span className="um-av">{initial}</span>
+        <span className="um-av">{photo ? <img src={photo} alt="" /> : initial}</span>
         {!compact && <span className="um-car" aria-hidden>▾</span>}
       </button>
 
       {open && (
         <div className="um-pop" role="menu">
           <div className="um-who">
-            <span className="um-av um-av-lg">{initial}</span>
+            <span className="um-av um-av-lg">{photo ? <img src={photo} alt="" /> : initial}</span>
             <span className="um-mail">{email || "Signed in"}</span>
           </div>
 
@@ -91,7 +98,8 @@ const UM_CSS = `
          border-radius:999px; background:#fff; cursor:pointer; font:inherit; }
 .um-btn:hover{ border-color:#cdd6e0; }
 .um-av{ width:30px; height:30px; border-radius:50%; background:#101a26; color:#fff; display:grid;
-        place-items:center; font-size:13px; font-weight:700; flex-shrink:0; }
+        place-items:center; font-size:13px; font-weight:700; flex-shrink:0; overflow:hidden; }
+.um-av img{ width:100%; height:100%; object-fit:cover; display:block; }
 .um-av-lg{ width:36px; height:36px; font-size:15px; }
 .um-car{ font-size:10px; color:#8a97a6; }
 .um-pop{ position:absolute; right:0; top:calc(100% + 8px); width:262px; background:#fff;

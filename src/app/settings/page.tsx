@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
 import UserMenu from "@/components/UserMenu";
 import { createClient } from "@/lib/supabase-browser";
-import { loadProfile, saveProfile, DEFAULT_PROFILE, type Profile } from "@/lib/profile";
+import { loadProfile, saveProfile, uploadAvatar, avatarUrl, DEFAULT_PROFILE, type Profile } from "@/lib/profile";
 import { THEME_LIST } from "@/lib/themes";
 
 export default function SettingsPage() {
@@ -35,12 +35,41 @@ function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [upBusy, setUpBusy] = useState(false);
+  const camRef = useRef<HTMLInputElement | null>(null);
+  const libRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    (async () => { setP(await loadProfile(sb)); setLoading(false); })();
+    (async () => {
+      const prof = await loadProfile(sb);
+      setP(prof);
+      setPhoto(await avatarUrl(sb, prof.avatar_path));
+      setLoading(false);
+    })();
   }, []);
 
   const set = (k: keyof Profile, v: string) => { setP(prev => ({ ...prev, [k]: v })); setSaved(false); };
+
+  /* Saved immediately rather than waiting for Save changes — a picture that
+     appears only after a separate click reads as broken. */
+  async function pickAvatar(file: File) {
+    setUpBusy(true);
+    try {
+      const path = await uploadAvatar(sb, file);
+      const next = { ...p, avatar_path: path };
+      setP(next);
+      await saveProfile(sb, next);
+      setPhoto(await avatarUrl(sb, path));
+    } catch (e: any) { alert("Could not upload that picture: " + (e?.message || e)); }
+    setUpBusy(false);
+  }
+
+  async function removeAvatar() {
+    const next = { ...p, avatar_path: "" };
+    setP(next); setPhoto(null);
+    try { await saveProfile(sb, next); } catch {}
+  }
 
   async function submit() {
     setSaving(true);
@@ -79,6 +108,29 @@ function Settings() {
 
         {loading ? <div style={{ padding: 50, color: "var(--ps-faint)" }}>Loading…</div> : (
           <>
+            <section className="st-card">
+              <div className="st-h">
+                <h2>Profile picture</h2>
+                <p>Shown on your account menu. Only you see it — it never appears on a client's report.</p>
+              </div>
+              <div className="st-av">
+                <div className="st-av-img">
+                  {photo ? <img src={photo} alt="" /> : <span>{(p.inspector_name || "P").charAt(0).toUpperCase()}</span>}
+                </div>
+                <div className="st-av-actions">
+                  <button className="st-btn" disabled={upBusy} onClick={() => camRef.current?.click()}>
+                    {upBusy ? "Uploading…" : "Take photo"}
+                  </button>
+                  <button className="st-btn" disabled={upBusy} onClick={() => libRef.current?.click()}>Choose from album</button>
+                  {photo && <button className="st-btn st-btn-del" onClick={removeAvatar}>Remove</button>}
+                  <input ref={camRef} type="file" accept="image/*" capture="user" hidden
+                    onChange={e => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) pickAvatar(f); }} />
+                  <input ref={libRef} type="file" accept="image/*" hidden
+                    onChange={e => { const f = e.target.files?.[0]; e.currentTarget.value = ""; if (f) pickAvatar(f); }} />
+                </div>
+              </div>
+            </section>
+
             <section className="st-card">
               <div className="st-h">
                 <h2>Business</h2>
@@ -176,6 +228,20 @@ const ST_CSS = `
 .st-wide{ grid-column:1 / -1; }
 .st-foot{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
 .st-note{ font-size:12.5px; color:var(--ps-faint); }
+.st-av{ display:flex; align-items:center; gap:18px; padding:20px 22px; flex-wrap:wrap; }
+.st-av-img{ width:76px; height:76px; border-radius:50%; overflow:hidden; flex-shrink:0;
+  display:grid; place-items:center; border:1px solid var(--ps-line);
+  background:linear-gradient(150deg,#45b0ee,#1d6fa8); color:#fff;
+  font-family:var(--ps-serif); font-size:28px; font-weight:600; }
+.st-av-img img{ width:100%; height:100%; object-fit:cover; display:block; }
+.st-av-actions{ display:flex; gap:9px; flex-wrap:wrap; }
+.st-btn{ padding:11px 16px; border:1px solid var(--ps-line); border-radius:10px; background:var(--ps-panel);
+  color:var(--ps-ink-2); font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+.st-btn:hover:not(:disabled){ border-color:#2a4767; color:var(--ps-ink); }
+.st-btn:disabled{ opacity:.5; cursor:not-allowed; }
+.st-btn-del{ color:#ff8f85; border-color:rgba(255,107,94,.3); }
+@media (pointer:coarse){ .st-btn{ min-height:48px; } }
+
 .ps-root :focus-visible{ outline:2px solid var(--ps-blue); outline-offset:2px; border-radius:8px; }
 @media (pointer:coarse){
   .st-f input, .st-f select, .st-f textarea{ font-size:16px; min-height:48px; }

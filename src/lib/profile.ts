@@ -12,6 +12,7 @@ export type Profile = {
   license_no: string;
   default_theme: string;
   standards_note: string;
+  avatar_path: string;
 };
 
 export const DEFAULT_PROFILE: Profile = {
@@ -26,6 +27,7 @@ export const DEFAULT_PROFILE: Profile = {
   license_no: "",
   default_theme: "estate",
   standards_note: "",
+  avatar_path: "",
 };
 
 export function normalizeProfile(raw: any): Profile {
@@ -42,6 +44,7 @@ export function normalizeProfile(raw: any): Profile {
     license_no: s(raw?.license_no),
     default_theme: s(raw?.default_theme, "estate"),
     standards_note: s(raw?.standards_note),
+    avatar_path: s(raw?.avatar_path),
   };
 }
 
@@ -58,4 +61,25 @@ export async function saveProfile(sb: any, p: Profile) {
   const { error } = await sb.from("profiles")
     .upsert({ ...p, user_id: user.id, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
   if (error) throw error;
+}
+
+/* The avatar lives in the same private bucket as inspection photos, so it is
+   read through a signed URL rather than a public one. */
+export async function avatarUrl(sb: any, path: string): Promise<string | null> {
+  if (!path) return null;
+  try {
+    const { data } = await sb.storage.from("inspection-photos").createSignedUrl(path, 3600);
+    return data?.signedUrl || null;
+  } catch { return null; }
+}
+
+export async function uploadAvatar(sb: any, file: File): Promise<string> {
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) throw new Error("not signed in");
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `avatars/${user.id}-${Date.now()}.${ext || "jpg"}`;
+  const { error } = await sb.storage.from("inspection-photos")
+    .upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+  if (error) throw error;
+  return path;
 }
