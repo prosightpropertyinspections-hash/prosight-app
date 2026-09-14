@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
+import UserMenu from "@/components/UserMenu";
 import Intake from "@/components/Intake";
 import { listReports, deleteReport, updateReport } from "@/lib/data";
 import { createClient } from "@/lib/supabase-browser";
@@ -48,7 +49,6 @@ function Dashboard() {
     return `${r.address} ${r.client}`.toLowerCase().includes(q.toLowerCase());
   }), [reports, q, filter]);
 
-  async function signOut() { await createClient().auth.signOut(); location.reload(); }
   async function del(r: Report) {
     if (confirm(`Delete the report for ${r.address || "this property"}? This can't be undone.`)) {
       await deleteReport(r.id); refresh();
@@ -179,7 +179,7 @@ function Dashboard() {
           <Link href="/" className="ps-navlink" data-on="1">Reports</Link>
           <Link href="/schedule" className="ps-navlink">Schedule</Link>
           <div style={{ flex: 1 }} />
-          <button className="ps-chip" onClick={signOut}>Sign out</button>
+          <UserMenu />
         </div>
       </header>
 

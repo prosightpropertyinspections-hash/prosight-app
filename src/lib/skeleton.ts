@@ -9,6 +9,8 @@ export const ROOM_DEFS = [
 export const SYS_DEFS = [
   {k:"roofing",l:"Roofing system",s:"Main dwelling roof"},{k:"exterior",l:"Exterior & siding",s:"Cladding, foundation, grading"},
   {k:"basement",l:"Basement / foundation",s:""},{k:"crawlspace",l:"Crawlspace",s:"Access, framing, moisture"},
+  {k:"attic",l:"Attic",s:"Framing, insulation, ventilation, moisture"},
+  {k:"thermal",l:"Thermal imaging",s:"Infrared scan — moisture, insulation, electrical"},
   {k:"mechanical",l:"Utility / mechanical",s:"HVAC, water heater"},
   {k:"electrical",l:"Electrical panel",s:"Service panel, breakers, grounding"},
   {k:"ac",l:"A/C condenser",s:"Exterior unit"},{k:"deck",l:"Deck / porch",s:""},
@@ -29,6 +31,7 @@ export function buildSkeleton(d: Pick<Report,"rooms"|"systems"|"garage"|"extras"
   if (d.systems.backyard) g("Backyard", "Exterior");
   if (d.systems.basement) g("Basement", "Structure");
   if (d.systems.crawlspace) g("Crawlspace", "Structure");
+  if (d.systems.attic) g("Attic", "Structure");
   if (d.systems.mechanical) g("Utility / Mechanical Room", "Systems");
   if (d.systems.electrical) g("Electrical Panel", "Systems");
   rep("kitchen","Interior — Kitchen","Interior"); rep("living","Interior — Living Room","Interior");
@@ -39,6 +42,7 @@ export function buildSkeleton(d: Pick<Report,"rooms"|"systems"|"garage"|"extras"
   if (d.garage === "detached") g("Detached Garage", "Structure");
   if (d.systems.ac) g("Air-Conditioning Condenser", "Systems");
   (d.extras || []).forEach(e => g(e, "Custom"));
+  if (d.systems.thermal) g("Thermal Imaging", "Systems");
   if (d.systems.sewer) g("Sewer Scope Inspection", "Systems");
   return a;
 }

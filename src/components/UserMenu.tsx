@@ -1,0 +1,95 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase-browser";
+
+/* Account menu. Business details live behind this rather than in a settings
+   page nobody finds, because they are entered once and then forgotten. */
+export default function UserMenu({ compact = false }: { compact?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await createClient().auth.getUser();
+      setEmail(user?.email || "");
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+
+  async function signOut() {
+    await createClient().auth.signOut();
+    location.href = "/";
+  }
+
+  const initial = (email || "?").trim().charAt(0).toUpperCase();
+
+  return (
+    <div className="um" ref={ref}>
+      <style>{UM_CSS}</style>
+
+      <button className="um-btn" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open}
+        title={email || "Account"}>
+        <span className="um-av">{initial}</span>
+        {!compact && <span className="um-car" aria-hidden>▾</span>}
+      </button>
+
+      {open && (
+        <div className="um-pop" role="menu">
+          <div className="um-who">
+            <span className="um-av um-av-lg">{initial}</span>
+            <span className="um-mail">{email || "Signed in"}</span>
+          </div>
+
+          <Link href="/settings" className="um-item" role="menuitem" onClick={() => setOpen(false)}>
+            <span className="um-i-t">Business settings</span>
+            <span className="um-i-s">Company name, address, contact details</span>
+          </Link>
+
+          <Link href="/settings#inspector" className="um-item" role="menuitem" onClick={() => setOpen(false)}>
+            <span className="um-i-t">Inspector details</span>
+            <span className="um-i-s">Name, InterNACHI ID, licence</span>
+          </Link>
+
+          <div className="um-sep" />
+
+          <button className="um-item um-out" role="menuitem" onClick={signOut}>
+            <span className="um-i-t">Sign out</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const UM_CSS = `
+.um{ position:relative; }
+.um-btn{ display:flex; align-items:center; gap:6px; padding:4px 8px 4px 4px; border:1px solid #e4e8ee;
+         border-radius:999px; background:#fff; cursor:pointer; font:inherit; }
+.um-btn:hover{ border-color:#cdd6e0; }
+.um-av{ width:30px; height:30px; border-radius:50%; background:#101a26; color:#fff; display:grid;
+        place-items:center; font-size:13px; font-weight:700; flex-shrink:0; }
+.um-av-lg{ width:36px; height:36px; font-size:15px; }
+.um-car{ font-size:10px; color:#8a97a6; }
+.um-pop{ position:absolute; right:0; top:calc(100% + 8px); width:262px; background:#fff;
+         border:1px solid #e4e8ee; border-radius:12px; box-shadow:0 18px 44px -14px rgba(16,26,38,.3);
+         overflow:hidden; z-index:60; }
+.um-who{ display:flex; align-items:center; gap:10px; padding:13px 15px; border-bottom:1px solid #eef1f5; }
+.um-mail{ font-size:12.5px; color:#475569; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.um-item{ display:block; width:100%; text-align:left; padding:11px 15px; border:0; background:transparent;
+          cursor:pointer; text-decoration:none; color:inherit; font:inherit; }
+.um-item:hover{ background:#f6f8fa; }
+.um-i-t{ display:block; font-size:13.5px; font-weight:600; color:#16202b; }
+.um-i-s{ display:block; font-size:11.5px; color:#8a97a6; margin-top:1px; }
+.um-sep{ height:1px; background:#eef1f5; }
+.um-out .um-i-t{ color:#b4453c; }
+`;

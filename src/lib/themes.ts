@@ -19,9 +19,9 @@ export interface ThemeTokens {
   bodyFont: string;      // body
   // feel
   radius: number;        // corner radius on cards
-  coverStyle: "monograph" | "obsidian" | "warrant" | "vanguard" | "terra" | "noir" | "aurora" | "prestige" | "blueprint";
-  gradeStyle: "seal" | "number" | "certificate" | "block" | "glow";
-  layout: "editorial" | "band" | "technical" | "minimal";  // inner-page structure family
+  coverStyle: "monograph" | "obsidian" | "warrant" | "vanguard" | "terra" | "noir" | "aurora" | "prestige" | "blueprint" | "lumen" | "split" | "ultra";
+  gradeStyle: "seal" | "number" | "certificate" | "block" | "glow" | "ring" | "bars" | "orbit";
+  layout: "editorial" | "band" | "technical" | "minimal" | "atrium" | "ledger" | "monolith";  // inner-page structure family
   // severity palette
   sev: {
     priority:{c:string;bg:string};
@@ -134,10 +134,43 @@ export const THEMES: Record<string, ThemeTokens> = {
     sev:{ priority:{c:"#e0475e",bg:"#fbe9ec"}, monitor:{c:"#c98a1e",bg:"#faf1de"}, satisfactory:{c:"#1f9c8a",bg:"#e4f4f1"} },
     gradeColor:{A:"#1f9c8a",B:"#4aa79a",C:"#c98a1e",D:"#dd6b45",F:"#e0475e"},
   },
+  lumen: {
+    id:"lumen", name:"Lumen", blurb:"Full-bleed light & shadow — quiet, expensive, gallery-grade",
+    pageBg:"#fcfcfb", ink:"#14171c", sub:"#79808c", hair:"#e7e8ec",
+    accent:"#a8814a", accent2:"#2b3a4a",
+    coverBg:"#0d1117", coverInk:"#f6f4ef", coverAccent:"#d3b177",
+    displayFont:'"Newsreader", Georgia, serif', bodyFont:'"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif',
+    radius:10, coverStyle:"lumen", gradeStyle:"ring",
+    layout:"atrium",
+    sev:{ priority:{c:"#b4483c",bg:"#f7edeb"}, monitor:{c:"#a8814a",bg:"#f7f1e6"}, satisfactory:{c:"#3f7d63",bg:"#eaf2ee"} },
+    gradeColor:{A:"#3f7d63",B:"#5f9178",C:"#a8814a",D:"#c07a45",F:"#b4483c"},
+  },
+  prosighty: {
+    id:"prosighty", name:"Prosighty", blurb:"Split cover & ledger pages — the house signature",
+    pageBg:"#ffffff", ink:"#0d1f33", sub:"#64748b", hair:"#dfe5ec",
+    accent:"#1f8fd0", accent2:"#0d1f33",
+    coverBg:"#0d1f33", coverInk:"#f2f7fb", coverAccent:"#39a7e6",
+    displayFont:'"Sora", "Helvetica Neue", sans-serif', bodyFont:'"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif',
+    radius:5, coverStyle:"split", gradeStyle:"bars",
+    layout:"ledger",
+    sev:{ priority:{c:"#d2453c",bg:"#fbecea"}, monitor:{c:"#c98319",bg:"#fcf3e2"}, satisfactory:{c:"#2b8f68",bg:"#e8f4ee"} },
+    gradeColor:{A:"#2b8f68",B:"#5aa47a",C:"#c98319",D:"#d97a3a",F:"#d2453c"},
+  },
+  prosighty_ultra: {
+    id:"prosighty_ultra", name:"Prosighty Ultra", blurb:"Full dark edition — floating cover card, luminous pages",
+    pageBg:"#0b1626", ink:"#eaf2fa", sub:"#8ea3ba", hair:"#1d3048",
+    accent:"#45b0ee", accent2:"#cbd6e2",
+    coverBg:"#081120", coverInk:"#eaf2fa", coverAccent:"#45b0ee",
+    displayFont:'"Sora", "Helvetica Neue", sans-serif', bodyFont:'"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif',
+    radius:14, coverStyle:"ultra", gradeStyle:"orbit",
+    layout:"monolith",
+    sev:{ priority:{c:"#ff6b5e",bg:"#2a1414"}, monitor:{c:"#f0b429",bg:"#2a2112"}, satisfactory:{c:"#3fd39b",bg:"#0f2a22"} },
+    gradeColor:{A:"#3fd39b",B:"#6cc98a",C:"#f0b429",D:"#ff8d4a",F:"#ff6b5e"},
+  },
 };
 
 export const THEME_LIST = Object.values(THEMES);
 export function getTheme(id?:string|null){ return (id && THEMES[id]) || THEMES.estate; }
 
 // Google Fonts needed by the themes
-export const THEME_FONT_HREF = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&family=Libre+Baskerville:wght@400;700&family=Archivo:wght@600;700;800&family=Fraunces:wght@500;600;700&family=Playfair+Display:wght@600;700;800&display=swap";
+export const THEME_FONT_HREF = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&family=Libre+Baskerville:wght@400;700&family=Archivo:wght@600;700;800&family=Fraunces:wght@500;600;700&family=Playfair+Display:wght@600;700;800&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500;6..72,600&family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap";

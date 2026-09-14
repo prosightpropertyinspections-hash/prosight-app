@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase-browser";
 import type { Report } from "@/lib/types";
 import ReportView from "@/components/ReportView";
 import { THEME_LIST } from "@/lib/themes";
+import { loadProfile, DEFAULT_PROFILE, type Profile } from "@/lib/profile";
 
 export default function PrintReport(){
   const { id } = useParams<{id:string}>();
@@ -17,6 +18,7 @@ export default function PrintReport(){
   const [urls,setUrls]=useState<Record<string,string>>({});
   const [theme,setTheme]=useState<string>("estate");
   const [ready,setReady]=useState(false);
+  const [profile,setProfile]=useState<Profile>(DEFAULT_PROFILE);
 
   useEffect(()=>{ (async()=>{
     if(token){
@@ -25,6 +27,7 @@ export default function PrintReport(){
       if(res.ok){ const j=await res.json(); setReport(j.report); setTheme(j.report?.theme||"estate"); setUrls(j.urls||{}); }
       setReady(true); return;
     }
+    setProfile(await loadProfile(sb));
     const r = await getReport(id); setReport(r);
     if(r){
       setTheme(r.theme||"estate");
@@ -58,7 +61,7 @@ export default function PrintReport(){
         <button onClick={()=>window.print()} style={{background:"#2f9d6b",color:"#fff",border:0,padding:"9px 18px",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:13}}>Print &amp; Download</button>
       </div>}
       <div className="rv-shell" style={{padding:"18px 0"}}>
-        <ReportView report={report} urls={urls} themeId={theme}/>
+        <ReportView report={report} urls={urls} themeId={theme} profile={profile}/>
       </div>
     </div>
   );

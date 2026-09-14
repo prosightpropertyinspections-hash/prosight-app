@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
@@ -8,6 +8,9 @@ import { THEME_LIST } from "@/lib/themes";
 import { createClient } from "@/lib/supabase-browser";
 import type { Report, Finding, Severity } from "@/lib/types";
 import { AnnotationEditor, AnnotatedPhoto, normalizeShapes, type Shape } from "@/components/Annotations";
+import { AtticPanel, normalizeAttic, isAttic, type AtticData } from "@/components/Attic";
+import { EquipmentPanel, normalizeEquipment, seedEquipment, isMechanical, type EquipData, type EquipRow } from "@/components/Equipment";
+import { OutletEditor, OutletInline, normalizeOutlets, seedRowsFromSections, rowFor, upsertRow, outletsApplyTo, type OutletData, type OutletRow } from "@/components/Outlets";
 
 export default function ReportPage(){ return <AuthGate><Editor/></AuthGate>; }
 
@@ -70,10 +73,133 @@ function Editor(){
   const sb = createClient();
   const [report,setReport]=useState<Report|null>(null);
   const [activeSec,setActiveSec]=useState<string|null>(null);
+  const OUTLETS="__outlets__";
+  const [dragId,setDragId]=useState<string|null>(null);
+  const [overId,setOverId]=useState<string|null>(null);
+  const listRef=useRef<HTMLDivElement|null>(null);
+  const posRef=useRef<Record<string,number>>({});
+
+  /* FLIP: measure where every row is now, let React reorder, then animate each
+     row from where it was to where it landed. Animating the DOM itself would
+     fight React; animating the difference does not. */
+  function capturePositions(){
+    const root=listRef.current; if(!root) return;
+    const map:Record<string,number>={};
+    root.querySelectorAll<HTMLElement>("[data-sec]").forEach(el=>{
+      map[el.dataset.sec!]=el.getBoundingClientRect().top;
+    });
+    posRef.current=map;
+  }
+
+  useLayoutEffect(()=>{
+    const root=listRef.current;
+    const prev=posRef.current;
+    if(!root || !Object.keys(prev).length) return;
+    if(window.matchMedia("(prefers-reduced-motion: reduce)").matches){ posRef.current={}; return; }
+
+    root.querySelectorAll<HTMLElement>("[data-sec]").forEach(el=>{
+      const id=el.dataset.sec!;
+      const before=prev[id];
+      if(before===undefined) return;
+      const delta=before-el.getBoundingClientRect().top;
+      if(!delta) return;
+      el.animate(
+        [{ transform:`translateY(${delta}px)` }, { transform:"translateY(0)" }],
+        { duration:260, easing:"cubic-bezier(.2,.8,.25,1)" }
+      );
+    });
+    posRef.current={};
+  },[report?.sections]);
   const [loading,setLoading]=useState(true);
 
   const load=useCallback(async()=>{ const r=await getReport(id); setReport(r); if(r?.sections?.length)setActiveSec(prev=>prev||r.sections![0].id); setLoading(false); },[id]);
   useEffect(()=>{ load(); },[load]);
+
+  /* Sections drive the whole report — page order, contents, the grade table —
+     so reordering here reorders the document. Only the rows whose position
+     actually changed are written back. */
+  async function moveSection(fromId:string, toId:string){
+    if(!report?.sections || fromId===toId) return;
+    capturePositions();
+    const list=[...report.sections];
+    const from=list.findIndex(s=>s.id===fromId);
+    const to=list.findIndex(s=>s.id===toId);
+    if(from<0||to<0) return;
+    const [moved]=list.splice(from,1);
+    list.splice(to,0,moved);
+
+    const changed=list.map((s,i)=>({s,i})).filter(({s,i})=>(s as any).sort_order!==i);
+    list.forEach((s,i)=>{ (s as any).sort_order=i; });
+    setReport({...report!, sections:list});
+
+    const res=await Promise.all(changed.map(({s,i})=>
+      sb.from("sections").update({sort_order:i}).eq("id",s.id)
+    ));
+    const bad=res.find(r=>r.error);
+    if(bad?.error) alert("Could not save the new order: "+bad.error.message);
+  }
+
+  function nudge(id:string, dir:-1|1){
+    if(!report?.sections) return;
+    const i=report.sections.findIndex(s=>s.id===id);
+    const j=i+dir;
+    if(i<0||j<0||j>=report.sections.length) return;
+    moveSection(id, report.sections[j].id);
+  }
+
+  async function saveEquipment(d:EquipData){
+    setReport(prev => prev ? ({ ...prev, equipment: d } as any) : prev);
+    const { error } = await sb.from("reports").update({ equipment: d }).eq("id", id);
+    if(error) alert("Could not save the equipment list: " + error.message);
+  }
+
+  /* Stores the plate photo for the inspector's own records, then reads it.
+     The stored path is never rendered in the report. */
+  async function readPlate(file:File):Promise<Partial<EquipRow>|null>{
+    const fd=new FormData(); fd.append("file",file); fd.append("reportId",id);
+    const up=await fetch("/api/upload",{method:"POST",body:fd});
+    const uj=await readJson(up);
+
+    const { data, mediaType } = await toAnalyzablePayload(file);
+    const res=await fetch("/api/dataplate",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ imageBase64:data, mediaType }),
+    });
+    const j=await readJson(res);
+    if(j?.error) throw new Error(j.error);
+    return { ...j, plate_path: uj?.path || null } as Partial<EquipRow>;
+  }
+
+  async function saveAttic(d:AtticData){
+    setReport(prev => prev ? ({ ...prev, attic: d } as any) : prev);
+    const { error } = await sb.from("reports").update({ attic: d }).eq("id", id);
+    if(error) alert("Could not save the attic ratings: " + error.message);
+  }
+
+  /* Reads the first attic photo on the section and asks for a rating per item. */
+  async function assessAttic(sec:any):Promise<Partial<AtticData>|null>{
+    const withPhoto = (sec?.findings||[]).find((f:any)=>f.photo_path);
+    if(!withPhoto) return null;
+    const { data } = await sb.storage.from("inspection-photos").createSignedUrl(withPhoto.photo_path, 3600);
+    if(!data?.signedUrl) return null;
+    const blob = await (await fetch(data.signedUrl)).blob();
+    const { data: b64, mediaType } = await toAnalyzablePayload(blob);
+    const res = await fetch("/api/attic-assess",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ imageBase64:b64, mediaType }),
+    });
+    const j = await readJson(res);
+    if(j?.error) throw new Error(j.error);
+    return j as Partial<AtticData>;
+  }
+
+  /* Outlets live on the report row, and are written from two places: the
+     per-room strip and the overview table. */
+  async function saveOutlets(d:OutletData){
+    setReport(prev => prev ? ({ ...prev, outlets: d } as any) : prev);
+    const { error } = await sb.from("reports").update({ outlets: d }).eq("id", id);
+    if(error) alert("Could not save the outlet counts: " + error.message);
+  }
 
   if(loading) return <div style={{display:"grid",placeItems:"center",height:"100vh",color:"var(--muted)"}}>Loading report…</div>;
   if(!report) return <div style={{display:"grid",placeItems:"center",height:"100vh",gap:12}}><div>Report not found.</div><Link className="btn btn-ghost" href="/">Back to reports</Link></div>;
@@ -92,6 +218,15 @@ function Editor(){
 
   return (
     <div style={{height:"100vh",display:"flex",flexDirection:"column"}}>
+      <style>{`
+        .sec-row .sec-move{ display:flex; flex-direction:column; gap:1px; opacity:0; transition:opacity .12s; }
+        .sec-row:hover .sec-move, .sec-row:focus-within .sec-move{ opacity:1; }
+        .sec-move button{ border:0; background:transparent; color:var(--faint); cursor:pointer;
+          font-size:7px; line-height:1; padding:2px 3px; border-radius:3px; }
+        .sec-move button:hover:not(:disabled){ color:var(--accent); background:var(--accent-tint); }
+        .sec-move button:disabled{ opacity:.25; cursor:default; }
+        @media (pointer:coarse){ .sec-row .sec-move{ opacity:1; } .sec-move button{ font-size:9px; padding:4px 5px; } }
+      `}</style>
       <header style={{background:"var(--surface)",borderBottom:"1px solid var(--line)",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:14,height:56,padding:"0 20px"}}>
           <Link href="/" style={{display:"flex",alignItems:"center",gap:8,color:"var(--muted)",fontSize:13}}>
@@ -112,29 +247,91 @@ function Editor(){
       <div style={{flex:1,display:"flex",minHeight:0}}>
         <aside style={{width:280,borderRight:"1px solid var(--line)",background:"var(--surface)",overflow:"auto",flexShrink:0}}>
           <div style={{padding:"14px 16px",fontSize:11,fontWeight:600,letterSpacing:".06em",textTransform:"uppercase",color:"var(--faint)"}}>Sections · {report.sections?.length||0}</div>
+          <div onClick={()=>setActiveSec(OUTLETS)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",cursor:"pointer",background:activeSec===OUTLETS?"var(--accent-tint)":"transparent",borderLeft:activeSec===OUTLETS?"3px solid var(--accent)":"3px solid transparent",borderBottom:"1px solid var(--line)"}}>
+            <span style={{fontSize:11,color:"var(--faint)",fontWeight:600,width:18}}>⚡</span>
+            <span style={{flex:1,fontSize:13,fontWeight:activeSec===OUTLETS?600:500}}>Receptacle testing</span>
+          </div>
+          <div ref={listRef}>
           {report.sections?.map((s,i)=>{
             const hasF=(s.findings?.length||0)>0;
+            const isOver = overId===s.id && dragId!==s.id;
             return (
-            <div key={s.id} onClick={()=>setActiveSec(s.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",cursor:"pointer",background:s.id===activeSec?"var(--accent-tint)":"transparent",borderLeft:s.id===activeSec?"3px solid var(--accent)":"3px solid transparent"}}>
+            <div key={s.id} className="sec-row" data-sec={s.id}
+              draggable
+              onDragStart={e=>{ setDragId(s.id); e.dataTransfer.effectAllowed="move"; }}
+              onDragOver={e=>{ e.preventDefault(); if(overId!==s.id) setOverId(s.id); }}
+              onDragEnd={()=>{ setDragId(null); setOverId(null); }}
+              onDrop={e=>{ e.preventDefault(); if(dragId) moveSection(dragId, s.id); setDragId(null); setOverId(null); }}
+              onClick={()=>setActiveSec(s.id)}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"10px 10px 10px 16px",cursor:"pointer",
+                background:s.id===activeSec?"var(--accent-tint)":"transparent",
+                borderLeft:s.id===activeSec?"3px solid var(--accent)":"3px solid transparent",
+                borderTop:isOver?"2px solid var(--accent)":"2px solid transparent",
+                transform:dragId===s.id?"scale(.98)":"scale(1)",
+                boxShadow:dragId===s.id?"0 6px 18px -8px rgba(16,24,40,.35)":"none",
+                opacity:dragId===s.id?.5:1,
+                transition:"opacity .14s, transform .14s, border-color .14s, background .14s"}}>
               <span style={{fontSize:11,color:"var(--faint)",fontWeight:600,width:18}}>{String(i+1).padStart(2,"0")}</span>
-              <span style={{flex:1,fontSize:13,fontWeight:s.id===activeSec?600:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.name}</span>
-              <span style={{width:7,height:7,borderRadius:"50%",background:hasF?"var(--ok)":"var(--line-2)"}}/>
+              <span style={{flex:1,minWidth:0,fontSize:13,fontWeight:s.id===activeSec?600:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.name}</span>
+              {/* Arrows as well as dragging: tablets don't fire HTML5 drag events. */}
+              <span className="sec-move">
+                <button onClick={ev=>{ev.stopPropagation();nudge(s.id,-1);}} disabled={i===0} aria-label="Move up">▲</button>
+                <button onClick={ev=>{ev.stopPropagation();nudge(s.id,1);}} disabled={i===(report!.sections!.length-1)} aria-label="Move down">▼</button>
+              </span>
+              <span style={{width:7,height:7,borderRadius:"50%",flexShrink:0,background:hasF?"var(--ok)":"var(--line-2)"}}/>
             </div>);
           })}
+          </div>
         </aside>
 
         <main style={{flex:1,overflow:"auto",padding:"24px 28px"}}>
+          {activeSec===OUTLETS ? (
+            <OutletEditor
+              value={(()=>{ 
+                const d = normalizeOutlets((report as any).outlets);
+                // First visit: start from the rooms this report already has.
+                return d.rows.length ? d : { rows: seedRowsFromSections(report!.sections||[]) };
+              })()}
+              onChange={saveOutlets}
+            />
+          ) : <>
           <CoverPhoto report={report} onChange={()=>setReport({...report!})} />
           {section && <>
             <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:4}}>
               <h1 style={{margin:0,fontSize:20,fontWeight:700}}>{section.name}</h1>
               <span style={{fontSize:11,color:"var(--faint)",textTransform:"uppercase",letterSpacing:".05em"}}>{section.grp}</span>
             </div>
-            <p style={{margin:"0 0 20px",fontSize:13,color:"var(--muted)"}}>{section.subtitle||"Add findings, photos, and notes for this area."}</p>
+            <p style={{margin:"0 0 16px",fontSize:13,color:"var(--muted)"}}>{section.subtitle||"Add findings, photos, and notes for this area."}</p>
+            {isMechanical(section.name) && (
+              <EquipmentPanel
+                value={(()=>{ 
+                  const d = normalizeEquipment((report as any).equipment);
+                  return d.rows.length ? d : { rows: seedEquipment() };
+                })()}
+                onChange={saveEquipment}
+                inspectionDate={report!.inspection_date}
+                onReadPlate={readPlate}
+              />
+            )}
+            {isAttic(section.name) && (
+              <AtticPanel
+                value={normalizeAttic((report as any).attic)}
+                onChange={saveAttic}
+                photoPath={(section.findings||[]).find((f:any)=>f.photo_path)?.photo_path || null}
+                onAssess={()=>assessAttic(section)}
+              />
+            )}
+            {outletsApplyTo(section.name) && (
+              <OutletInline
+                row={rowFor(normalizeOutlets((report as any).outlets), section)}
+                onChange={(r:OutletRow)=>saveOutlets(upsertRow(normalizeOutlets((report as any).outlets), r))}
+              />
+            )}
             {(section.findings||[]).map(f=>(
               <FindingCard key={f.id} finding={f} report={report} area={section.name} onChange={()=>setReport({...report!})} />
             ))}
             <button className="btn btn-ghost" onClick={addFinding} style={{marginTop:6}}>+ Add finding</button>
+          </>}
           </>}
         </main>
       </div>
@@ -277,8 +474,8 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
         // A title you typed yourself is kept; the model only fills a blank one.
         if(j.title && !f.title?.trim()) patch.title=j.title;
         await save(patch);
-      } else alert(j?.error||"AI error");
-    }catch(e:any){ alert("AI unavailable: "+(e?.message||e)); }
+      } else alert(j?.error||"Couldn't write that up.");
+    }catch(e:any){ alert("Couldn't complete that: "+(e?.message||e)); }
     setBusy(false);
   }
 
@@ -309,7 +506,7 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
               <button key={s} onClick={()=>save({severity:s})} style={{fontSize:11,fontWeight:600,padding:"4px 10px",borderRadius:20,cursor:"pointer",border:`1px solid ${on?m.c:"var(--line-2)"}`,background:on?m.bg:"var(--surface)",color:on?m.c:"var(--muted)"}}>{m.w}</button>);})}
           </div>
           <div style={{display:"flex",gap:8,marginTop:9}}>
-            <button className="btn btn-primary" style={{padding:"6px 12px",fontSize:12.5}} disabled={busy} onClick={rewrite}>{busy?"Working…":"Rewrite with AI"}</button>
+            <button className="btn btn-primary" style={{padding:"6px 12px",fontSize:12.5}} disabled={busy} onClick={rewrite}>{busy?"Working…":"Write-up"}</button>
             <button className="btn btn-ghost" style={{padding:"6px 12px",fontSize:12.5}} onClick={del}>Delete</button>
           </div>
         </div>
@@ -339,7 +536,7 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
         ) : (
           <div onClick={()=>setEditingText(true)} title="Click to edit"
             style={{fontSize:13,cursor:"text",color:f.ai_text?"var(--ink)":"var(--faint)",fontStyle:f.ai_text?"normal":"italic"}}>
-            {f.ai_text||"Not written yet — type a note and click Rewrite with AI, or click here to write it yourself."}
+            {f.ai_text||"Not written yet — add a field note and tap Write-up, or click here to write it yourself."}
           </div>
         )}
       </div>
