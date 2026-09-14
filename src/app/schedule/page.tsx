@@ -151,7 +151,7 @@ function Schedule() {
     <div className="ps-root">
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-      <style>{SCHED_CSS}</style>
+      <style dangerouslySetInnerHTML={{__html: SCHED_CSS }} />
 
       <header className="ps-bar">
         <div className="ps-wrap ps-bar-in">

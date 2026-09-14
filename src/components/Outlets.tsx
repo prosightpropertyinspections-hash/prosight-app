@@ -93,7 +93,7 @@ export function OutletInline({ row, onChange }: { row: OutletRow; onChange: (r: 
 
   return (
     <div className="oi" data-bad={over ? "1" : "0"}>
-      <style>{OI_CSS}</style>
+      <style dangerouslySetInnerHTML={{__html: OI_CSS }} />
       <div className="oi-l">
         <span className="oi-t">Receptacles in this room</span>
         <span className="oi-s">
@@ -138,7 +138,7 @@ export function OutletEditor({ value, onChange }: { value: OutletData; onChange:
 
   return (
     <div className="ot">
-      <style>{OT_CSS}</style>
+      <style dangerouslySetInnerHTML={{__html: OT_CSS }} />
 
       <div className="ot-head">
         <div>

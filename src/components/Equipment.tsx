@@ -193,7 +193,7 @@ export function EquipmentPanel({
 
   return (
     <div className="eq">
-      <style>{EQ_CSS}</style>
+      <style dangerouslySetInnerHTML={{__html: EQ_CSS }} />
 
       <div className="eq-head">
         <div>

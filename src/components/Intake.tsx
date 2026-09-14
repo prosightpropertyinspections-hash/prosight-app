@@ -80,7 +80,7 @@ export default function Intake({
 
   return (
     <div className="ik" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <style>{IK_CSS}</style>
+      <style dangerouslySetInnerHTML={{__html: IK_CSS }} />
       <div className="ik-sheet" onClick={e=>e.stopPropagation()}>
         <div className="ik-h">
           <div>

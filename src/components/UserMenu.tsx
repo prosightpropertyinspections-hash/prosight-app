@@ -35,7 +35,7 @@ export default function UserMenu({ compact = false, dark = false }: { compact?: 
 
   return (
     <div className="um" data-dark={dark ? "1" : "0"} ref={ref}>
-      <style>{UM_CSS}</style>
+      <style dangerouslySetInnerHTML={{__html: UM_CSS }} />
 
       <button className="um-btn" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open}
         title={email || "Account"}>

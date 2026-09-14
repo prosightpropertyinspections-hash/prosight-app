@@ -140,13 +140,6 @@ function Editor(){
     if(bad?.error) alert("Could not save the new order: "+bad.error.message);
   }
 
-  function nudge(id:string, dir:-1|1){
-    if(!report?.sections) return;
-    const i=report.sections.findIndex(s=>s.id===id);
-    const j=i+dir;
-    if(i<0||j<0||j>=report.sections.length) return;
-    moveSection(id, report.sections[j].id);
-  }
 
   async function saveEquipment(d:EquipData){
     setReport(prev => prev ? ({ ...prev, equipment: d } as any) : prev);
@@ -219,7 +212,7 @@ function Editor(){
 
   return (
     <div style={{height:"100vh",display:"flex",flexDirection:"column",background:"var(--surface-2,#f6f8fa)",color:"var(--ink,#16202b)"}}>
-      <style>{`
+      <style dangerouslySetInnerHTML={{__html: `
         .ed-thumb{ width:96px; }
         .ed-tap{ min-height:40px; }
         @media (pointer:coarse){
@@ -252,7 +245,6 @@ function Editor(){
           .ed-secs > .sec-row[data-active="1"]{
             border-color:var(--accent) !important; background:var(--accent-tint) !important;
           }
-          .ed-secs .sec-move{ display:none !important; }   /* reorder stays on the desktop layout */
           .ed-outlets{ flex:0 0 auto; border-radius:999px; border:1px solid var(--line);
                        padding:9px 14px !important; margin:10px 0 0 12px; }
           .ed-main{ padding:18px 16px 40px !important; }
@@ -265,16 +257,7 @@ function Editor(){
           .ed-findrow{ flex-direction:column !important; }
           .ed-secs > .sec-row{ max-width:72vw; }
         }
-        .sec-row .sec-move{
-
-        .sec-row .sec-move{ display:flex; flex-direction:column; gap:1px; opacity:0; transition:opacity .12s; }
-        .sec-row:hover .sec-move, .sec-row:focus-within .sec-move{ opacity:1; }
-        .sec-move button{ border:0; background:transparent; color:var(--faint); cursor:pointer;
-          font-size:7px; line-height:1; padding:2px 3px; border-radius:3px; }
-        .sec-move button:hover:not(:disabled){ color:var(--accent); background:var(--accent-tint); }
-        .sec-move button:disabled{ opacity:.25; cursor:default; }
-        @media (pointer:coarse){ .sec-row .sec-move{ opacity:1; } .sec-move button{ font-size:9px; padding:4px 5px; } }
-      `}</style>
+      ` }} />
       <header style={{background:"var(--surface)",borderBottom:"1px solid var(--line)",flexShrink:0}}>
         <div className="ed-topbar" style={{display:"flex",alignItems:"center",gap:14,height:56,padding:"0 20px"}}>
           <Link href="/" style={{display:"flex",alignItems:"center",gap:8,color:"var(--muted)",fontSize:13}}>
@@ -321,11 +304,6 @@ function Editor(){
                 transition:"opacity .14s, transform .14s, border-color .14s, background .14s"}}>
               <span style={{fontSize:11,color:"var(--faint)",fontWeight:600,width:18}}>{String(i+1).padStart(2,"0")}</span>
               <span style={{flex:1,minWidth:0,fontSize:13,fontWeight:s.id===activeSec?600:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.name}</span>
-              {/* Arrows as well as dragging: tablets don't fire HTML5 drag events. */}
-              <span className="sec-move">
-                <button onClick={ev=>{ev.stopPropagation();nudge(s.id,-1);}} disabled={i===0} aria-label="Move up">▲</button>
-                <button onClick={ev=>{ev.stopPropagation();nudge(s.id,1);}} disabled={i===(report!.sections!.length-1)} aria-label="Move down">▼</button>
-              </span>
               <span style={{width:7,height:7,borderRadius:"50%",flexShrink:0,background:hasF?"var(--ok)":"var(--line-2)"}}/>
             </div>);
           })}

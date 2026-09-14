@@ -46,7 +46,7 @@ export default function PWA() {
 
   return (
     <div className="pwa">
-      <style>{PWA_CSS}</style>
+      <style dangerouslySetInnerHTML={{__html: PWA_CSS }} />
       <img src="/icons/icon-192.png" alt="" />
       <div className="pwa-t">
         <strong>Install ProSight Studio</strong>

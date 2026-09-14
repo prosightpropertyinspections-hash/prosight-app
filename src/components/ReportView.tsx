@@ -255,7 +255,7 @@ export default function ReportView({ report, urls, themeId, profile }:{ report:R
   return (
     <div>
       <link href={THEME_FONT_HREF} rel="stylesheet" />
-      <style>{`
+      <style dangerouslySetInnerHTML={{__html: `
         @page { size: letter; margin: 0; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing:border-box; }
         html, body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -286,7 +286,7 @@ export default function ReportView({ report, urls, themeId, profile }:{ report:R
           .rv-page + .rv-page{ page-break-before:always; }
         }
         .rv-foot{ position:absolute; bottom:26px; left:54px; right:54px; display:flex; justify-content:space-between; font-size:8.5px; }
-      `}</style>
+      ` }} />
 
       {t.coverStyle==="monograph" && <MonographCover biz={biz} t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}
       {t.coverStyle==="obsidian"  && <ObsidianCover  biz={biz} t={t} report={report} cover={cover} M={M} reportNo={reportNo} base={coverBase}/>}

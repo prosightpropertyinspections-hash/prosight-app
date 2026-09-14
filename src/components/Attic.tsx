@@ -89,7 +89,7 @@ export function AtticPanel({
 
   return (
     <div className="at">
-      <style>{AT_CSS}</style>
+      <style dangerouslySetInnerHTML={{__html: AT_CSS }} />
 
       <div className="at-head">
         <div>
