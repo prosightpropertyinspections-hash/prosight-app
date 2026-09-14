@@ -298,7 +298,7 @@ const UX_CSS = `
   --ux-blue:#45b0ee; --ux-green:#3fd39b; --ux-amber:#f0b429; --ux-red:#ff6b5e;
   --ux-display:"Sora","Helvetica Neue",sans-serif;
   position:relative; min-height:100vh; background:var(--ux-bg); color:var(--ux-ink);
-  overflow-x:hidden; width:100%; max-width:100%;
+  overflow-x:clip; width:100%; max-width:100%;
   font-family:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
 }
 /* Sized in viewport units, not pixels. A fixed 1200px bloom is wider than a

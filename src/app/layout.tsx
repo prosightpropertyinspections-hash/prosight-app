@@ -45,9 +45,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <style>{`
           html { background:#070d16; color-scheme:dark; }
           body { background:#070d16; margin:0; overscroll-behavior-y:none; }
-          /* One stray wide element used to drag the whole document past the
-             viewport, which makes a phone render the page zoomed out. */
-          html, body { overflow-x:hidden; max-width:100%; }
+          /* clip, never hidden: overflow-x:hidden forces overflow-y to compute
+             as auto, which makes the element a scroll container and stops the
+             page scrolling on a phone. */
+          html, body { overflow-x:clip; }
           img, svg, video { max-width:100%; }
           ::selection { background:rgba(69,176,238,.3); }
         `}</style>
