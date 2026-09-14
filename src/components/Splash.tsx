@@ -61,7 +61,7 @@ const SP_CSS = `
 
 .sp-mark{ position:relative; overflow:hidden; padding:2px 6px;
   animation:sp-rise .82s cubic-bezier(.2,.75,.25,1) both; }
-.sp-mark img{ display:block; width:min(46vw,190px); height:auto;
+.sp-mark img{ display:block; width:min(62vw,260px); height:auto;
   filter:drop-shadow(0 10px 26px rgba(0,0,0,.55)); }
 .sp-word{ animation:sp-rise .82s cubic-bezier(.2,.75,.25,1) .12s both; }
 .sp-word img{ display:block; width:min(56vw,230px); height:auto; opacity:.95; }
