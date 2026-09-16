@@ -49,6 +49,17 @@ function Dashboard() {
     return `${r.address} ${r.client}`.toLowerCase().includes(q.toLowerCase());
   }), [reports, q, filter]);
 
+  /* A report is delivered the moment the client has it, so the control lives
+     next to Share rather than buried in the editor. */
+  async function setDelivered(r: Report, done: boolean) {
+    try {
+      await updateReport(r.id, { status: done ? "done" : "draft" } as any);
+      setReports(prev => prev.map(x => x.id === r.id ? ({ ...x, status: done ? "done" : "draft" } as Report) : x));
+    } catch (e: any) {
+      alert("Could not update that report: " + (e?.message || e));
+    }
+  }
+
   async function del(r: Report) {
     if (confirm(`Delete the report for ${r.address || "this property"}? This can't be undone.`)) {
       await deleteReport(r.id); refresh();
@@ -158,6 +169,10 @@ function Dashboard() {
                       </span>
                     </Link>
                     <div className="ux-acts">
+                      <button className={isDone ? "" : "ux-deliver"} onClick={() => setDelivered(r, !isDone)}
+                        title={isDone ? "Move back to in progress" : "Mark this report as delivered to the client"}>
+                        {isDone ? "Reopen" : "Mark delivered"}
+                      </button>
                       <button onClick={() => setSharing(r)}>Share</button>
                       <button onClick={() => setEditing(r)}>Edit</button>
                       <button className="ux-del" onClick={() => del(r)}>Delete</button>
@@ -175,18 +190,28 @@ function Dashboard() {
         )}
       </main>
 
-      {sharing && <ShareLink report={sharing} onClose={() => setSharing(null)} />}
+      {sharing && (
+        <ShareLink
+          report={sharing}
+          delivered={sharing.status === "done"}
+          onDeliver={() => setDelivered(sharing, true)}
+          onClose={() => setSharing(null)}
+        />
+      )}
       {editing && <EditDetails report={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />}
       {showIntake && <Intake onClose={() => { setShowIntake(false); refresh(); }} />}
     </div>
   );
 }
 
-function ShareLink({ report, onClose }: { report: Report; onClose: () => void }) {
+function ShareLink({ report, delivered, onDeliver, onClose }: {
+  report: Report; delivered: boolean; onDeliver: () => void; onClose: () => void;
+}) {
   const [share, setShare] = useState<any>(null);
   const [busy, setBusy] = useState(true);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState("");
+  const [done, setDone] = useState(delivered);
 
   useEffect(() => {
     (async () => {
@@ -234,6 +259,17 @@ function ShareLink({ report, onClose }: { report: Report; onClose: () => void })
               <div className="ux-hint">
                 Anyone with both can open this report. {share.views || 0} view{(share.views || 0) === 1 ? "" : "s"} so far.
               </div>
+
+              {/* Marking it delivered here, at the moment the link is sent, is
+                  the only point where it is reliably true. */}
+              <label className="ux-deliv-row">
+                <input type="checkbox" checked={done}
+                  onChange={e => { setDone(e.target.checked); if (e.target.checked) onDeliver(); }} />
+                <span>
+                  <strong>Mark this report as delivered</strong>
+                  <em>Moves it out of In progress on your dashboard</em>
+                </span>
+              </label>
             </>
           )}
         </div>
@@ -378,6 +414,8 @@ const UX_CSS = `
 .ux-acts button{ padding:8px 13px; border:1px solid var(--ux-line); border-radius:9px; background:transparent;
   color:var(--ux-ink-2); font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; }
 .ux-acts button:hover{ border-color:var(--ux-blue); color:var(--ux-blue); }
+.ux-acts .ux-deliver{ color:var(--ux-green); border-color:rgba(63,211,155,.32); }
+.ux-acts .ux-deliver:hover{ border-color:var(--ux-green); background:rgba(63,211,155,.10); color:var(--ux-green); }
 .ux-acts .ux-del{ color:var(--ux-faint); border-color:transparent; }
 .ux-acts .ux-del:hover{ color:var(--ux-red); border-color:rgba(255,107,94,.4); }
 
@@ -411,6 +449,11 @@ const UX_CSS = `
 .ux-note{ margin:0 0 18px; font-size:13.5px; color:var(--ux-ink-2); }
 .ux-hint{ margin-top:16px; padding:12px 14px; border:1px solid var(--ux-line); border-radius:10px;
   background:rgba(69,176,238,.06); font-size:12.5px; color:var(--ux-ink-2); }
+.ux-deliv-row{ display:flex; align-items:flex-start; gap:11px; margin-top:13px; padding:13px 15px; cursor:pointer;
+  border:1px solid rgba(63,211,155,.28); border-radius:10px; background:rgba(63,211,155,.07); }
+.ux-deliv-row input{ width:18px; height:18px; margin-top:1px; accent-color:#3fd39b; flex-shrink:0; }
+.ux-deliv-row strong{ display:block; font-size:13.5px; font-weight:600; color:var(--ux-ink); }
+.ux-deliv-row em{ display:block; font-style:normal; font-size:12px; color:var(--ux-ink-2); margin-top:2px; }
 .ux-err{ padding:13px 15px; border:1px solid rgba(255,107,94,.35); border-radius:10px;
   background:rgba(255,107,94,.08); color:#ff8f85; font-size:13px; }
 .ux-sheet-f{ display:flex; gap:10px; justify-content:flex-end; padding:17px 22px; border-top:1px solid var(--ux-line); }
