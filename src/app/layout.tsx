@@ -2,6 +2,8 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import PWA from "@/components/PWA";
 import Splash from "@/components/Splash";
+import DialogHost from "@/components/Dialog";
+import PullToRefresh from "@/components/PullToRefresh";
 
 export const metadata: Metadata = {
   title: "ProSight Report Studio",
@@ -45,17 +47,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <style>{`
           html { background:#070d16; color-scheme:dark; }
           body { background:#070d16; margin:0; overscroll-behavior-y:none; }
-          /* clip, never hidden: overflow-x:hidden forces overflow-y to compute
-             as auto, which makes the element a scroll container and stops the
-             page scrolling on a phone. */
-          html, body { overflow-x:clip; }
-          img, svg, video { max-width:100%; }
           ::selection { background:rgba(69,176,238,.3); }
         `}</style>
       </head>
       <body>
         <Splash />
+        <PullToRefresh />
         {children}
+        <DialogHost />
         <PWA />
       </body>
     </html>

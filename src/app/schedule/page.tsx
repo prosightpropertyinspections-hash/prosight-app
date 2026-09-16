@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { showConfirm, showAlert } from "@/components/Dialog";
 import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
 import UserMenu from "@/components/UserMenu";
@@ -133,7 +134,7 @@ function Schedule() {
     load();
   }
   async function remove(id: string) {
-    if (!confirm("Delete this appointment?")) return;
+    if(!(await showConfirm({ title:"Delete this appointment?", body:"The booking and its details will be removed from your schedule.", confirmText:"Delete", danger:true }))) return;
     await sb.from("appointments").delete().eq("id", id);
     setEditing(null); setViewing(null); load();
   }
@@ -151,7 +152,7 @@ function Schedule() {
     <div className="ps-root">
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-      <style dangerouslySetInnerHTML={{__html: SCHED_CSS }} />
+      <style>{SCHED_CSS}</style>
 
       <header className="ps-bar">
         <div className="ps-wrap ps-bar-in">

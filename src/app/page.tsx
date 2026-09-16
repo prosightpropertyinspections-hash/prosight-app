@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { showConfirm, showAlert } from "@/components/Dialog";
 import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
 import UserMenu from "@/components/UserMenu";
@@ -56,12 +57,12 @@ function Dashboard() {
       await updateReport(r.id, { status: done ? "done" : "draft" } as any);
       setReports(prev => prev.map(x => x.id === r.id ? ({ ...x, status: done ? "done" : "draft" } as Report) : x));
     } catch (e: any) {
-      alert("Could not update that report: " + (e?.message || e));
+      showAlert("Could not update that report: " + (e?.message || e));
     }
   }
 
   async function del(r: Report) {
-    if (confirm(`Delete the report for ${r.address || "this property"}? This can't be undone.`)) {
+    if(await showConfirm({ title:"Delete this report?", body:`${r.address || "This property"} — findings, photographs and grade will be removed. This cannot be undone.`, confirmText:"Delete", danger:true })) {
       await deleteReport(r.id); refresh();
     }
   }
@@ -298,7 +299,7 @@ function EditDetails({ report, onClose, onSaved }: { report: Report; onClose: ()
     try {
       await updateReport(report.id, { address, client, inspector, inspection_date: date || null } as any);
       onSaved();
-    } catch (e: any) { alert("Could not save: " + (e?.message || e)); setSaving(false); }
+    } catch (e: any) { showAlert("Could not save: " + (e?.message || e)); setSaving(false); }
   }
 
   return (

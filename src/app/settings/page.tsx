@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { showConfirm, showAlert } from "@/components/Dialog";
 import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
 import UserMenu from "@/components/UserMenu";
@@ -61,7 +62,7 @@ function Settings() {
       setP(next);
       await saveProfile(sb, next);
       setPhoto(await avatarUrl(sb, path));
-    } catch (e: any) { alert("Could not upload that picture: " + (e?.message || e)); }
+    } catch (e: any) { showAlert("Could not upload that picture: " + (e?.message || e)); }
     setUpBusy(false);
   }
 
@@ -74,7 +75,7 @@ function Settings() {
   async function submit() {
     setSaving(true);
     try { await saveProfile(sb, p); setSaved(true); }
-    catch (e: any) { alert("Could not save: " + (e?.message || e)); }
+    catch (e: any) { showAlert("Could not save: " + (e?.message || e)); }
     setSaving(false);
   }
 

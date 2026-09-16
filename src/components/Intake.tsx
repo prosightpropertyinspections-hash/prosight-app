@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { showConfirm, showAlert } from "@/components/Dialog";
 import { ROOM_DEFS, SYS_DEFS, buildSkeleton } from "@/lib/skeleton";
 import { createReportWithSections } from "@/lib/data";
 import { createClient } from "@/lib/supabase-browser";
@@ -74,7 +75,7 @@ export default function Intake({
         await sb.from("appointments").update({ report_id: rep.id }).eq("id", appointmentId);
       }
       router.push(`/report/${rep.id}`);
-    }catch(e:any){ alert("Could not create report: "+e.message); setBusy(false); }
+    }catch(e:any){ showAlert("Could not create report: "+e.message); setBusy(false); }
   }
 
   const valid = d.property.client.trim() && d.property.addr.trim();

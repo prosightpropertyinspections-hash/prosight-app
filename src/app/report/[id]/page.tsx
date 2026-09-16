@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
+import { showConfirm, showAlert } from "@/components/Dialog";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
@@ -146,26 +147,26 @@ function Editor(){
       sb.from("sections").update({sort_order:i}).eq("id",s.id)
     ));
     const bad=res.find(r=>r.error);
-    if(bad?.error) alert("Could not save the new order: "+bad.error.message);
+    if(bad?.error) showAlert("Could not save the new order: "+bad.error.message);
   }
 
 
   async function saveSnapshot(d:Snapshot){
     setReport(prev => prev ? ({ ...prev, snapshot: d } as any) : prev);
     const { error } = await sb.from("reports").update({ snapshot: d }).eq("id", id);
-    if(error) alert("Could not save the property snapshot: " + error.message);
+    if(error) showAlert("Could not save the property snapshot: " + error.message);
   }
 
   async function saveGradeOverride(g:string){
     setReport(prev => prev ? ({ ...prev, grade_override: g } as any) : prev);
     const { error } = await sb.from("reports").update({ grade_override: g }).eq("id", id);
-    if(error) alert("Could not save the grade: " + error.message);
+    if(error) showAlert("Could not save the grade: " + error.message);
   }
 
   async function saveEquipment(d:EquipData){
     setReport(prev => prev ? ({ ...prev, equipment: d } as any) : prev);
     const { error } = await sb.from("reports").update({ equipment: d }).eq("id", id);
-    if(error) alert("Could not save the equipment list: " + error.message);
+    if(error) showAlert("Could not save the equipment list: " + error.message);
   }
 
   /* Stores the plate photo for the inspector's own records, then reads it.
@@ -188,7 +189,7 @@ function Editor(){
   async function saveAttic(d:AtticData){
     setReport(prev => prev ? ({ ...prev, attic: d } as any) : prev);
     const { error } = await sb.from("reports").update({ attic: d }).eq("id", id);
-    if(error) alert("Could not save the attic ratings: " + error.message);
+    if(error) showAlert("Could not save the attic ratings: " + error.message);
   }
 
   /* Reads the first attic photo on the section and asks for a rating per item. */
@@ -213,7 +214,7 @@ function Editor(){
   async function saveOutlets(d:OutletData){
     setReport(prev => prev ? ({ ...prev, outlets: d } as any) : prev);
     const { error } = await sb.from("reports").update({ outlets: d }).eq("id", id);
-    if(error) alert("Could not save the outlet counts: " + error.message);
+    if(error) showAlert("Could not save the outlet counts: " + error.message);
   }
 
   if(loading) return <div style={{display:"grid",placeItems:"center",height:"100vh",background:"var(--surface-2,#f6f8fa)",color:"var(--muted,#667)"}}>Loading report…</div>;
@@ -413,7 +414,7 @@ function CoverPhoto({report,onChange}:{report:Report;onChange:()=>void}){
     const res=await fetch("/api/upload",{method:"POST",body:fd});
     const j=await readJson(res);
     if(j.path){ await sb.from("reports").update({cover_photo:j.path}).eq("id",report.id); report.cover_photo=j.path; onChange(); }
-    else alert(j.error||"Upload failed");
+    else showAlert(j.error||"Upload failed");
     setBusy(false);
   }
   async function remove(){ await sb.from("reports").update({cover_photo:null}).eq("id",report.id); report.cover_photo=null; onChange(); }
@@ -511,7 +512,7 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
     const fd=new FormData(); fd.append("file",file); fd.append("reportId",report.id);
     const res=await fetch("/api/upload",{method:"POST",body:fd});
     const j=await readJson(res);
-    if(j.path){ await save({photo_path:j.path}); } else { alert(j.error||"Upload failed"); }
+    if(j.path){ await save({photo_path:j.path}); } else { showAlert(j.error||"Upload failed"); }
     setBusy(false);
   }
 
@@ -535,12 +536,12 @@ function FindingCard({finding,report,area,onChange}:{finding:Finding;report:Repo
         // A title you typed yourself is kept; the model only fills a blank one.
         if(j.title && !f.title?.trim()) patch.title=j.title;
         await save(patch);
-      } else alert(j?.error||"Couldn't write that up.");
-    }catch(e:any){ alert("Couldn't complete that: "+(e?.message||e)); }
+      } else showAlert(j?.error||"Couldn't write that up.");
+    }catch(e:any){ showAlert("Couldn't complete that: "+(e?.message||e)); }
     setBusy(false);
   }
 
-  async function del(){ if(confirm("Delete this finding?")){ await sb.from("findings").delete().eq("id",f.id); const sec=report.sections?.find(s=>s.id===f.section_id); if(sec)sec.findings=sec.findings?.filter(x=>x.id!==f.id); onChange(); } }
+  async function del(){ if(await showConfirm({ title:"Delete this finding?", body:"Its note, photograph and report text will be removed.", confirmText:"Delete", danger:true })){ await sb.from("findings").delete().eq("id",f.id); const sec=report.sections?.find(s=>s.id===f.section_id); if(sec)sec.findings=sec.findings?.filter(x=>x.id!==f.id); onChange(); } }
 
   return (
     <div className="card" style={{padding:14,marginBottom:12}}>
