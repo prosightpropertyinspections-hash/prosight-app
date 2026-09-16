@@ -166,7 +166,7 @@ function Schedule() {
         </div>
       </header>
 
-      <div className="ps-wrap" style={{ paddingBottom: 90 }}>
+      <div className="pg-fade ps-wrap" style={{ paddingBottom: 90 }}>
         <div className="ps-head">
           <div>
             <h1 className="ps-title">Schedule</h1>
@@ -606,7 +606,7 @@ const SCHED_CSS = `
   background:var(--ps-paper); min-height:100vh; color:var(--ps-ink);
   font-family:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
 }
-.ps-wrap{ max-width:1080px; margin:0 auto; padding:0 26px; }
+.ps-wrap{ max-width:1120px; margin:0 auto; padding:0 26px; }
 .ps-bar{ background:rgba(7,13,22,.82); backdrop-filter:blur(14px);
   border-bottom:1px solid var(--ps-line); position:sticky; top:0; z-index:30; }
 .ps-bar-in{ display:flex; align-items:center; gap:20px; height:108px; }
@@ -782,6 +782,13 @@ const SCHED_CSS = `
   box-shadow:inset 0 1px 0 rgba(234,242,250,.14); font-size:14.5px; font-weight:650; }
 .sm-start:hover{ background:linear-gradient(150deg,#2183c4,#175a8c); }
 .sm-start span{ display:block; font-size:11.5px; font-weight:400; color:rgba(234,242,250,.72); margin-top:3px; }
+
+/* Content fades up on arrival. The header is excluded deliberately — a bar that
+   re-animates on every navigation draws attention to the navigation itself. */
+@keyframes pg-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: no-preference){
+  .pg-fade{ animation:pg-in .22s cubic-bezier(.2,.8,.25,1) both; }
+}
 
 .ps-root :focus-visible{ outline:2px solid var(--ps-blue); outline-offset:2px; border-radius:8px; }
 @media (max-width:900px){

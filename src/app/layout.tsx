@@ -44,11 +44,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500;6..72,600&family=Cormorant+Garamond:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&family=Libre+Baskerville:wght@400;700&family=Archivo:wght@600;700;800&family=Fraunces:wght@500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet" />
         {/* Overscroll reveals the document, not the page — without this the
             rubber-band at the top and bottom flashes white on a dark screen. */}
-        <style>{`
+        <style dangerouslySetInnerHTML={{__html: `
           html { background:#070d16; color-scheme:dark; }
           body { background:#070d16; margin:0; overscroll-behavior-y:none; }
+          /* clip, never hidden: overflow-x:hidden forces overflow-y to compute
+             as auto, which makes the element a scroll container and stops the
+             page scrolling on a phone. */
+          html, body { overflow-x:clip; }
+          img, svg, video { max-width:100%; }
+
+          /* Scrollbars hidden app-wide. Scrolling is untouched — this removes
+             only the painted track, which is a desktop artefact that eats width
+             and tells a tablet user nothing a swipe doesn't. */
+          *::-webkit-scrollbar { width:0; height:0; }
+          *::-webkit-scrollbar-track { background:transparent; }
+          *::-webkit-scrollbar-thumb { background:transparent; }
+          * { scrollbar-width:none; -ms-overflow-style:none; }
           ::selection { background:rgba(69,176,238,.3); }
-        `}</style>
+        ` }} />
       </head>
       <body>
         <Splash />

@@ -96,7 +96,7 @@ function Settings() {
         </div>
       </header>
 
-      <div className="ps-wrap" style={{ paddingBottom: 90 }}>
+      <div className="pg-fade ps-wrap" style={{ paddingBottom: 90 }}>
         <div className="ps-head">
           <div>
             <h1 className="ps-title">Settings</h1>
@@ -199,7 +199,7 @@ const ST_CSS = `
   background:var(--ps-paper); min-height:100vh; color:var(--ps-ink);
   font-family:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
 }
-.ps-wrap{ max-width:1080px; margin:0 auto; padding:0 26px; }
+.ps-wrap{ max-width:1120px; margin:0 auto; padding:0 26px; }
 .ps-bar{ background:rgba(7,13,22,.82); backdrop-filter:blur(14px);
   border-bottom:1px solid var(--ps-line); position:sticky; top:0; z-index:30; }
 .ps-bar-in{ display:flex; align-items:center; gap:20px; height:108px; }
@@ -207,7 +207,7 @@ const ST_CSS = `
 .ps-rule{ width:1px; height:38px; background:var(--ps-line); }
 .ps-navlink{ font-size:13.5px; color:var(--ps-ink-2); text-decoration:none; padding:8px 2px; }
 .ps-navlink:hover{ color:var(--ps-ink); }
-.ps-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; padding:42px 0 22px; }
+.ps-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; padding:42px 0 24px; }
 .ps-title{ font-family:var(--ps-serif); font-size:34px; font-weight:600; letter-spacing:-.9px; margin:0; line-height:1.06; }
 .ps-sub{ margin:8px 0 0; font-size:14px; color:var(--ps-ink-2); max-width:52ch; }
 .ps-action{ border:0; border-radius:11px; padding:12px 20px; font:inherit; font-size:13.5px; font-weight:600;
@@ -246,6 +246,13 @@ const ST_CSS = `
 .st-btn:disabled{ opacity:.5; cursor:not-allowed; }
 .st-btn-del{ color:#ff8f85; border-color:rgba(255,107,94,.3); }
 @media (pointer:coarse){ .st-btn{ min-height:48px; } }
+
+/* Content fades up on arrival. The header is excluded deliberately — a bar that
+   re-animates on every navigation draws attention to the navigation itself. */
+@keyframes pg-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: no-preference){
+  .pg-fade{ animation:pg-in .22s cubic-bezier(.2,.8,.25,1) both; }
+}
 
 .ps-root :focus-visible{ outline:2px solid var(--ps-blue); outline-offset:2px; border-radius:8px; }
 @media (pointer:coarse){

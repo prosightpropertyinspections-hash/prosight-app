@@ -90,7 +90,7 @@ function Dashboard() {
         </div>
       </header>
 
-      <main className="ux-wrap ux-main">
+      <main className="pg-fade ux-wrap ux-main">
         <div className="ux-head">
           <div>
             <div className="ux-kicker">ProSight Report Studio</div>
@@ -359,9 +359,9 @@ const UX_CSS = `
   border-radius:2px; background:linear-gradient(90deg,var(--ux-blue),transparent); }
 
 .ux-main{ padding-bottom:110px; }
-.ux-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; padding:44px 0 26px; }
+.ux-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; padding:42px 0 24px; }
 .ux-kicker{ font-size:9.5px; letter-spacing:3.4px; text-transform:uppercase; color:var(--ux-blue); margin-bottom:9px; }
-.ux-title{ font-family:var(--ux-display); font-size:36px; font-weight:600; letter-spacing:-1px; margin:0; line-height:1.05; }
+.ux-title{ font-family:var(--ux-display); font-size:34px; font-weight:600; letter-spacing:-.9px; margin:0; line-height:1.05; }
 .ux-sub{ margin:9px 0 0; font-size:14px; color:var(--ux-ink-2); max-width:48ch; }
 
 .ux-cta{ position:relative; border:0; cursor:pointer; border-radius:11px; padding:1px;
@@ -458,6 +458,13 @@ const UX_CSS = `
 .ux-err{ padding:13px 15px; border:1px solid rgba(255,107,94,.35); border-radius:10px;
   background:rgba(255,107,94,.08); color:#ff8f85; font-size:13px; }
 .ux-sheet-f{ display:flex; gap:10px; justify-content:flex-end; padding:17px 22px; border-top:1px solid var(--ux-line); }
+
+/* Content fades up on arrival. The header is excluded deliberately — a bar that
+   re-animates on every navigation draws attention to the navigation itself. */
+@keyframes pg-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: no-preference){
+  .pg-fade{ animation:pg-in .22s cubic-bezier(.2,.8,.25,1) both; }
+}
 
 .ux :focus-visible{ outline:2px solid var(--ux-blue); outline-offset:2px; border-radius:8px; }
 /* The shell's palette is namespaced so it cannot leak into components that use
