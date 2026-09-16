@@ -29,19 +29,28 @@ function scrollerAtTop(target: EventTarget | null): boolean {
 export default function PullToRefresh() {
   const [pull, setPull] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [dbg, setDbg] = useState<string>("");
   const start = useRef<number | null>(null);
   const armed = useRef(false);
+
+  /* Add ?ptr=1 to any url to see what the gesture is deciding. Off otherwise. */
+  const debug = typeof window !== "undefined" && window.location.search.includes("ptr=1");
 
   useEffect(() => {
     const onStart = (e: TouchEvent) => {
       if (busy || e.touches.length !== 1) return;
       armed.current = scrollerAtTop(e.target);
       start.current = armed.current ? e.touches[0].clientY : null;
+      if (debug) {
+        const t = e.target as HTMLElement | null;
+        setDbg(`start armed=${armed.current} tag=${t?.tagName||"?"} cls=${(t?.className||"").toString().slice(0,26)} winY=${Math.round(window.scrollY)}`);
+      }
     };
 
     const onMove = (e: TouchEvent) => {
       if (!armed.current || start.current === null || busy) return;
       const dy = e.touches[0].clientY - start.current;
+      if (debug) setDbg(d => `${d} | dy=${Math.round(dy)}`);
       if (dy <= 0) { setPull(0); return; }
       // resistance, so the pull feels physical rather than linear
       setPull(Math.min(MAX, dy * 0.5));
@@ -76,7 +85,15 @@ export default function PullToRefresh() {
     };
   }, [busy]);
 
-  if (pull <= 0 && !busy) return null;
+  if (pull <= 0 && !busy) {
+    return debug ? (
+      <div style={{position:"fixed",left:8,bottom:8,zIndex:400,background:"rgba(7,13,22,.92)",
+        color:"#7fd0ff",font:"11px/1.5 monospace",padding:"7px 9px",borderRadius:8,
+        border:"1px solid #1d3048",maxWidth:"92vw",pointerEvents:"none"}}>
+        {dbg || "pull down at the top of the page…"}
+      </div>
+    ) : null;
+  }
 
   const ready = pull >= TRIGGER;
   const progress = Math.min(1, pull / TRIGGER);
