@@ -4,12 +4,27 @@ import { useEffect, useRef, useState } from "react";
 /* Pull to refresh, using the company mark instead of the browser's spinner.
 
    The app sets overscroll-behavior:none to stop the white rubber-band flash,
-   which also disables the native gesture — so this replaces it rather than
-   competing with it. It only arms at the very top of the page, so a pull in the
-   middle of a long report still scrolls normally. */
+   which also kills the native gesture — so this replaces it rather than
+   competing with it. */
 
-const TRIGGER = 76;   // px of pull before it fires
-const MAX = 110;      // px the indicator will travel
+const TRIGGER = 72;   // px of pull before it fires
+const MAX = 108;      // px the indicator will travel
+
+/* The window is not always what scrolls: the report editor scrolls an inner
+   pane, and the section strip scrolls sideways. The gesture must arm only when
+   whatever is actually under the finger is already at its top. */
+function scrollerAtTop(target: EventTarget | null): boolean {
+  let el = target as HTMLElement | null;
+  while (el && el !== document.body && el !== document.documentElement) {
+    const st = el.scrollTop;
+    if (el.scrollHeight > el.clientHeight + 1) {
+      const oy = getComputedStyle(el).overflowY;
+      if (oy === "auto" || oy === "scroll") return st <= 0;
+    }
+    el = el.parentElement;
+  }
+  return (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
+}
 
 export default function PullToRefresh() {
   const [pull, setPull] = useState(0);
@@ -18,12 +33,9 @@ export default function PullToRefresh() {
   const armed = useRef(false);
 
   useEffect(() => {
-    const atTop = () =>
-      (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
-
     const onStart = (e: TouchEvent) => {
       if (busy || e.touches.length !== 1) return;
-      armed.current = atTop();
+      armed.current = scrollerAtTop(e.target);
       start.current = armed.current ? e.touches[0].clientY : null;
     };
 
@@ -31,8 +43,7 @@ export default function PullToRefresh() {
       if (!armed.current || start.current === null || busy) return;
       const dy = e.touches[0].clientY - start.current;
       if (dy <= 0) { setPull(0); return; }
-      if (!atTop()) { armed.current = false; setPull(0); return; }
-      // resistance: the pull slows the further it goes, so it feels physical
+      // resistance, so the pull feels physical rather than linear
       setPull(Math.min(MAX, dy * 0.5));
     };
 
@@ -43,22 +54,25 @@ export default function PullToRefresh() {
       setPull(p => {
         if (p >= TRIGGER) {
           setBusy(true);
-          setTimeout(() => location.reload(), 380);
+          setTimeout(() => location.reload(), 420);
           return TRIGGER;
         }
         return 0;
       });
     };
 
-    window.addEventListener("touchstart", onStart, { passive: true });
-    window.addEventListener("touchmove", onMove, { passive: true });
-    window.addEventListener("touchend", onEnd, { passive: true });
-    window.addEventListener("touchcancel", onEnd, { passive: true });
+    // capture phase: a component that stops propagation on its own touch
+    // handlers must not be able to swallow the gesture
+    const opts = { passive: true, capture: true } as AddEventListenerOptions;
+    window.addEventListener("touchstart", onStart, opts);
+    window.addEventListener("touchmove", onMove, opts);
+    window.addEventListener("touchend", onEnd, opts);
+    window.addEventListener("touchcancel", onEnd, opts);
     return () => {
-      window.removeEventListener("touchstart", onStart);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("touchend", onEnd);
-      window.removeEventListener("touchcancel", onEnd);
+      window.removeEventListener("touchstart", onStart, opts);
+      window.removeEventListener("touchmove", onMove, opts);
+      window.removeEventListener("touchend", onEnd, opts);
+      window.removeEventListener("touchcancel", onEnd, opts);
     };
   }, [busy]);
 
@@ -68,27 +82,27 @@ export default function PullToRefresh() {
   const progress = Math.min(1, pull / TRIGGER);
 
   return (
-    <div className="ptr" style={{ transform: `translateY(${pull}px)`, opacity: Math.min(1, progress * 1.4) }}>
+    <div className="ptr" style={{ transform: `translateY(${pull}px)`, opacity: Math.min(1, progress * 1.5) }}>
       <style dangerouslySetInnerHTML={{ __html: PTR_CSS }} />
-      <div className="ptr-disc" data-busy={busy ? "1" : "0"} data-ready={ready ? "1" : "0"}
-        style={busy ? undefined : { transform: `rotate(${progress * 300}deg)` }}>
-        <img src="/icons/icon-192.png" alt="" />
+      <div className="ptr-disc" data-busy={busy ? "1" : "0"} data-ready={ready ? "1" : "0"}>
+        <img src="/logo-mark.svg" alt=""
+          style={busy ? undefined : { transform: `rotate(${progress * 240}deg)` }} />
       </div>
     </div>
   );
 }
 
 const PTR_CSS = `
-.ptr{ position:fixed; top:-52px; left:0; right:0; z-index:150; display:grid; place-items:center;
-  pointer-events:none; transition:opacity .16s ease; }
-.ptr-disc{ width:44px; height:44px; border-radius:50%; overflow:hidden; background:#0f1a2a;
-  border:1px solid #1d3048; box-shadow:0 10px 24px -10px rgba(0,0,0,.85);
-  display:grid; place-items:center; }
-.ptr-disc img{ width:100%; height:100%; object-fit:cover; display:block; }
-.ptr-disc[data-ready="1"]{ border-color:#45b0ee; box-shadow:0 0 18px -4px rgba(69,176,238,.8); }
-.ptr-disc[data-busy="1"]{ border-color:#45b0ee; animation:ptr-spin .75s linear infinite; }
+.ptr{ position:fixed; top:-54px; left:0; right:0; z-index:150; display:grid; place-items:center;
+  pointer-events:none; }
+.ptr-disc{ width:48px; height:48px; border-radius:50%; background:#0f1a2a; border:1px solid #1d3048;
+  box-shadow:0 12px 26px -10px rgba(0,0,0,.9); display:grid; place-items:center; overflow:hidden; }
+.ptr-disc img{ width:30px; height:auto; display:block; transition:transform .06s linear; }
+.ptr-disc[data-ready="1"]{ border-color:#45b0ee; box-shadow:0 0 20px -4px rgba(69,176,238,.85); }
+.ptr-disc[data-busy="1"]{ border-color:#45b0ee; }
+.ptr-disc[data-busy="1"] img{ animation:ptr-spin .8s linear infinite; }
 
 @keyframes ptr-spin{ to{ transform:rotate(360deg); } }
-@media (prefers-reduced-motion: reduce){ .ptr-disc{ animation:none !important; } }
+@media (prefers-reduced-motion: reduce){ .ptr-disc img{ animation:none !important; } }
 @media print{ .ptr{ display:none !important; } }
 `;
