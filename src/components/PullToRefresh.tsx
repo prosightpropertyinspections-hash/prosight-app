@@ -52,6 +52,12 @@ export default function PullToRefresh() {
       const dy = e.touches[0].clientY - start.current;
       if (debug) setDbg(d => `${d} | dy=${Math.round(dy)}`);
       if (dy <= 0) { setPull(0); return; }
+
+      /* Claim the gesture. Without this the browser treats the downward drag as
+         a scroll it owns and our handler only sees it once the finger breaks the
+         vertical pan — which is why it appeared only when moving sideways. */
+      if (e.cancelable) e.preventDefault();
+
       // resistance, so the pull feels physical rather than linear
       setPull(Math.min(MAX, dy * 0.5));
     };
@@ -70,18 +76,20 @@ export default function PullToRefresh() {
       });
     };
 
-    // capture phase: a component that stops propagation on its own touch
-    // handlers must not be able to swallow the gesture
-    const opts = { passive: true, capture: true } as AddEventListenerOptions;
-    window.addEventListener("touchstart", onStart, opts);
-    window.addEventListener("touchmove", onMove, opts);
-    window.addEventListener("touchend", onEnd, opts);
-    window.addEventListener("touchcancel", onEnd, opts);
+    /* Capture phase so a component with its own touch handling cannot swallow
+       the gesture. touchmove is non-passive because it must be preventable —
+       everything else stays passive so normal scrolling is untouched. */
+    const passive = { passive: true, capture: true } as AddEventListenerOptions;
+    const active  = { passive: false, capture: true } as AddEventListenerOptions;
+    window.addEventListener("touchstart", onStart, passive);
+    window.addEventListener("touchmove", onMove, active);
+    window.addEventListener("touchend", onEnd, passive);
+    window.addEventListener("touchcancel", onEnd, passive);
     return () => {
-      window.removeEventListener("touchstart", onStart, opts);
-      window.removeEventListener("touchmove", onMove, opts);
-      window.removeEventListener("touchend", onEnd, opts);
-      window.removeEventListener("touchcancel", onEnd, opts);
+      window.removeEventListener("touchstart", onStart, passive);
+      window.removeEventListener("touchmove", onMove, active);
+      window.removeEventListener("touchend", onEnd, passive);
+      window.removeEventListener("touchcancel", onEnd, passive);
     };
   }, [busy]);
 
