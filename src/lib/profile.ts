@@ -13,6 +13,7 @@ export type Profile = {
   default_theme: string;
   standards_note: string;
   avatar_path: string;
+  review_url: string;
 };
 
 export const DEFAULT_PROFILE: Profile = {
@@ -28,6 +29,7 @@ export const DEFAULT_PROFILE: Profile = {
   default_theme: "estate",
   standards_note: "",
   avatar_path: "",
+  review_url: "",
 };
 
 export function normalizeProfile(raw: any): Profile {
@@ -45,6 +47,7 @@ export function normalizeProfile(raw: any): Profile {
     default_theme: s(raw?.default_theme, "estate"),
     standards_note: s(raw?.standards_note),
     avatar_path: s(raw?.avatar_path),
+    review_url: s(raw?.review_url),
   };
 }
 

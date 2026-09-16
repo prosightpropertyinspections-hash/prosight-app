@@ -37,8 +37,20 @@ export async function POST(req: NextRequest){
   (sections||[]).forEach((s:any)=>{ s.findings = (findings||[]).filter((f:any)=>f.section_id===s.id); });
   (rep as any).sections = sections||[];
 
+  /* The client's copy carries the business details too: the report itself reads
+     them, and the page needs the contact block and the review link. Only the
+     public-facing fields are sent — nothing about the account. */
+  const { data: prof } = await db.from("profiles").select(
+    "company_name,legal_name,address,phone,email,website,inspector_name,internachi_id,license_no,standards_note,review_url"
+  ).eq("user_id", rep.owner).maybeSingle();
+
   // bump view count (best effort)
   db.from("report_shares").update({ views: (share.views||0)+1 }).eq("id", share.id).then(()=>{});
 
-  return NextResponse.json({ report: rep, urls });
+  return NextResponse.json({
+    report: rep,
+    urls,
+    profile: prof || null,
+    acknowledged_at: share.acknowledged_at || null,
+  });
 }

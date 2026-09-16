@@ -75,7 +75,12 @@ function outerHeight(el: Element){
 }
 const FILL_IMG:React.CSSProperties = { width:"100%", height:"100%", objectFit:"cover" };
 
-export default function ReportView({ report, urls, themeId, profile }:{ report:Report; urls:Record<string,string>; themeId?:string|null; profile?:any; }){
+export default function ReportView({ report, urls, themeId, profile, beforeScope }:{
+  report:Report; urls:Record<string,string>; themeId?:string|null; profile?:any;
+  /* Screen-only content slotted in before the closing page. Anything passed
+     here must carry .noprint — it is not part of the document. */
+  beforeScope?:React.ReactNode;
+}){
   /* Business details come from settings when available; a report opened without
      them still renders, just with the defaults. */
   const biz:Profile = normalizeProfile(profile);
@@ -347,6 +352,8 @@ export default function ReportView({ report, urls, themeId, profile }:{ report:R
           pageBase={pageBase} reportNo={reportNo}
           pageNo={P_EXEC + execCount + secChunks.length + i}/>
       ))}
+
+      {beforeScope}
 
       <ScopePage biz={biz} t={t} report={report} pageBase={pageBase} reportNo={reportNo}
         pageNo={P_EXEC + execCount + secChunks.length + outletPages.length}/>

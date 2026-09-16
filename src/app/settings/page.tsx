@@ -144,6 +144,10 @@ function Settings() {
                 <Field k="email" label="Email" placeholder="reports@prosightpropertyinspections.com" value={p.email} onChange={set} />
                 <Field k="website" label="Website" placeholder="prosightpropertyinspections.com" value={p.website} onChange={set} />
                 <Field k="address" label="Business address" placeholder="Dearborn Heights, Michigan" wide value={p.address} onChange={set} />
+                <Field k="review_url" label="Google review link"
+                  placeholder="https://g.page/r/XXXXXXXX/review"
+                  hint="Google Business Profile → Ask for reviews. Shown to clients after they confirm receipt."
+                  wide value={p.review_url} onChange={set} />
               </div>
             </section>
 
