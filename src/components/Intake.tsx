@@ -38,8 +38,9 @@ export default function Intake({
       ptype:"Single-family dwelling",
       inspector:prefill?.inspector||"",
     },
-    rooms:{bedroom:3,bathroom:2,kitchen:1,living:1,family:0,dining:0,laundry:1,office:0} as Record<string,number>,
-    systems:{roofing:true,exterior:true,basement:true,crawlspace:false,attic:true,mechanical:true,
+    rooms:{bedroom:3,bathroom:2,kitchen:1,living:1,family:0,dining:0,laundry:1,office:0,hallway:1} as Record<string,number>,
+    systems:{roofing:true,exterior:true,basement:true,crawlspace:false,attic:true,
+             basement_stairs:true,interior_stairs:false,mechanical:true,
              electrical:true,ac:true,deck:false,backyard:false,thermal:false,sewer:true} as Record<string,boolean>,
     garage:"attached", extras:[] as string[],
   });
@@ -80,7 +81,7 @@ export default function Intake({
 
   return (
     <div className="ik" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <style dangerouslySetInnerHTML={{__html: IK_CSS }} />
+      <style>{IK_CSS}</style>
       <div className="ik-sheet" onClick={e=>e.stopPropagation()}>
         <div className="ik-h">
           <div>
@@ -104,9 +105,9 @@ export default function Intake({
           {step===1 && <>
             <H t="Room counts" s="Each room becomes its own section — three bedrooms gives you Bedroom 1, 2, and 3." />
             {ROOM_DEFS.map(r=>(
-              <Counter key={r.k} label={r.l} sub={r.s} val={d.rooms[r.k]}
-                onDec={()=>set({rooms:{...d.rooms,[r.k]:Math.max(0,d.rooms[r.k]-1)}})}
-                onInc={()=>set({rooms:{...d.rooms,[r.k]:d.rooms[r.k]+1}})} />
+              <Counter key={r.k} label={r.l} sub={r.s} val={d.rooms[r.k]||0}
+                onDec={()=>set({rooms:{...d.rooms,[r.k]:Math.max(0,(d.rooms[r.k]||0)-1)}})}
+                onInc={()=>set({rooms:{...d.rooms,[r.k]:(d.rooms[r.k]||0)+1}})} />
             ))}
           </>}
 

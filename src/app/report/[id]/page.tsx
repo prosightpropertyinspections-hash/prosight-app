@@ -5,15 +5,23 @@ import Link from "next/link";
 import AuthGate from "@/components/AuthGate";
 import { PhotoInput, PhotoDrop } from "@/components/PhotoInput";
 import { getReport, updateReport } from "@/lib/data";
+import { buildModel } from "@/lib/report-model";
 import { THEME_LIST } from "@/lib/themes";
 import { createClient } from "@/lib/supabase-browser";
 import type { Report, Finding, Severity } from "@/lib/types";
 import { AnnotationEditor, AnnotatedPhoto, normalizeShapes, type Shape } from "@/components/Annotations";
+import { SnapshotPanel, normalizeSnapshot, EMPTY_SNAPSHOT, type Snapshot } from "@/components/Snapshot";
 import { AtticPanel, normalizeAttic, isAttic, type AtticData } from "@/components/Attic";
 import { EquipmentPanel, normalizeEquipment, seedEquipment, isMechanical, type EquipData, type EquipRow } from "@/components/Equipment";
 import { OutletEditor, OutletInline, normalizeOutlets, seedRowsFromSections, rowFor, upsertRow, outletsApplyTo, type OutletData, type OutletRow } from "@/components/Outlets";
 
 export default function ReportPage(){ return <AuthGate><Editor/></AuthGate>; }
+
+/* The panel shows the calculated grade beside the override so the choice is
+   informed. buildModel is the same function the report itself uses. */
+function gradeOf(report:any):string{
+  try { return buildModel(report).overall || "—"; } catch { return "—"; }
+}
 
 const SEV_META:Record<Severity,{w:string;c:string;bg:string}>={
   priority:{w:"Priority",c:"var(--danger)",bg:"var(--danger-tint)"},
@@ -75,6 +83,7 @@ function Editor(){
   const [report,setReport]=useState<Report|null>(null);
   const [activeSec,setActiveSec]=useState<string|null>(null);
   const OUTLETS="__outlets__";
+  const SNAPSHOT="__snapshot__";
   const [dragId,setDragId]=useState<string|null>(null);
   const [overId,setOverId]=useState<string|null>(null);
   const listRef=useRef<HTMLDivElement|null>(null);
@@ -140,6 +149,18 @@ function Editor(){
     if(bad?.error) alert("Could not save the new order: "+bad.error.message);
   }
 
+
+  async function saveSnapshot(d:Snapshot){
+    setReport(prev => prev ? ({ ...prev, snapshot: d } as any) : prev);
+    const { error } = await sb.from("reports").update({ snapshot: d }).eq("id", id);
+    if(error) alert("Could not save the property snapshot: " + error.message);
+  }
+
+  async function saveGradeOverride(g:string){
+    setReport(prev => prev ? ({ ...prev, grade_override: g } as any) : prev);
+    const { error } = await sb.from("reports").update({ grade_override: g }).eq("id", id);
+    if(error) alert("Could not save the grade: " + error.message);
+  }
 
   async function saveEquipment(d:EquipData){
     setReport(prev => prev ? ({ ...prev, equipment: d } as any) : prev);
@@ -278,6 +299,10 @@ function Editor(){
       <div className="ed-body" style={{flex:1,display:"flex",minHeight:0}}>
         <aside className="ed-side" style={{width:280,borderRight:"1px solid var(--line)",background:"var(--surface)",overflow:"auto",flexShrink:0}}>
           <div className="ed-cap" style={{padding:"14px 16px",fontSize:11,fontWeight:600,letterSpacing:".06em",textTransform:"uppercase",color:"var(--faint)"}}>Sections · {report.sections?.length||0}</div>
+          <div className="ed-outlets" onClick={()=>setActiveSec(SNAPSHOT)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",cursor:"pointer",background:activeSec===SNAPSHOT?"var(--accent-tint)":"transparent",borderLeft:activeSec===SNAPSHOT?"3px solid var(--accent)":"3px solid transparent",borderBottom:"1px solid var(--line)"}}>
+            <span style={{fontSize:11,color:"var(--faint)",fontWeight:600,width:18}}>🏠</span>
+            <span style={{flex:1,fontSize:13,fontWeight:activeSec===SNAPSHOT?600:500}}>Property snapshot</span>
+          </div>
           <div className="ed-outlets" onClick={()=>setActiveSec(OUTLETS)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",cursor:"pointer",background:activeSec===OUTLETS?"var(--accent-tint)":"transparent",borderLeft:activeSec===OUTLETS?"3px solid var(--accent)":"3px solid transparent",borderBottom:"1px solid var(--line)"}}>
             <span style={{fontSize:11,color:"var(--faint)",fontWeight:600,width:18}}>⚡</span>
             <span style={{flex:1,fontSize:13,fontWeight:activeSec===OUTLETS?600:500}}>Receptacle testing</span>
@@ -311,7 +336,15 @@ function Editor(){
         </aside>
 
         <main className="ed-main" style={{flex:1,overflow:"auto",padding:"24px 28px",background:"var(--surface-2,#f6f8fa)"}}>
-          {activeSec===OUTLETS ? (
+          {activeSec===SNAPSHOT ? (
+            <SnapshotPanel
+              value={normalizeSnapshot((report as any).snapshot) || EMPTY_SNAPSHOT}
+              onChange={saveSnapshot}
+              override={String((report as any).grade_override || "")}
+              onOverride={saveGradeOverride}
+              calculated={gradeOf(report!)}
+            />
+          ) : activeSec===OUTLETS ? (
             <OutletEditor
               value={(()=>{ 
                 const d = normalizeOutlets((report as any).outlets);

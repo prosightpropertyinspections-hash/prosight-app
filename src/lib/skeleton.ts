@@ -5,11 +5,14 @@ export const ROOM_DEFS = [
   {k:"kitchen",l:"Kitchens",s:""},{k:"living",l:"Living rooms",s:""},
   {k:"family",l:"Family / rec rooms",s:""},{k:"dining",l:"Dining rooms",s:""},
   {k:"laundry",l:"Laundry rooms",s:""},{k:"office",l:"Offices / dens",s:""},
+  {k:"hallway",l:"Hallways",s:"Smoke / CO detectors, ceiling access"},
 ];
 export const SYS_DEFS = [
   {k:"roofing",l:"Roofing system",s:"Main dwelling roof"},{k:"exterior",l:"Exterior & siding",s:"Cladding, foundation, grading"},
   {k:"basement",l:"Basement / foundation",s:""},{k:"crawlspace",l:"Crawlspace",s:"Access, framing, moisture"},
   {k:"attic",l:"Attic",s:"Framing, insulation, ventilation, moisture"},
+  {k:"basement_stairs",l:"Basement stairs",s:"Treads, risers, handrail, headroom"},
+  {k:"interior_stairs",l:"Interior stairs",s:"Main staircase, handrail, guards"},
   {k:"thermal",l:"Thermal imaging",s:"Infrared scan — moisture, insulation, electrical"},
   {k:"mechanical",l:"Utility / mechanical",s:"HVAC, water heater"},
   {k:"electrical",l:"Electrical panel",s:"Service panel, breakers, grounding"},
@@ -22,7 +25,7 @@ export function buildSkeleton(d: Pick<Report,"rooms"|"systems"|"garage"|"extras"
   const a: Partial<Section>[] = [];
   const g = (name: string, grp: string) => a.push({ name, grp, subtitle: "" });
   const rep = (key: string, base: string, grp: string) => {
-    const n = d.rooms[key] || 0;
+    const n = (d.rooms && d.rooms[key]) || 0;
     for (let i = 1; i <= n; i++) g(n > 1 ? `${base} ${i}` : base, grp);
   };
   if (d.systems.roofing) g("Roofing System", "Exterior");
@@ -31,6 +34,8 @@ export function buildSkeleton(d: Pick<Report,"rooms"|"systems"|"garage"|"extras"
   if (d.systems.backyard) g("Backyard", "Exterior");
   if (d.systems.basement) g("Basement", "Structure");
   if (d.systems.crawlspace) g("Crawlspace", "Structure");
+  if (d.systems.basement_stairs) g("Basement Stairs", "Structure");
+  if (d.systems.interior_stairs) g("Interior Stairs", "Structure");
   if (d.systems.attic) g("Attic", "Structure");
   if (d.systems.mechanical) g("Utility / Mechanical Room", "Systems");
   if (d.systems.electrical) g("Electrical Panel", "Systems");
@@ -38,6 +43,7 @@ export function buildSkeleton(d: Pick<Report,"rooms"|"systems"|"garage"|"extras"
   rep("family","Interior — Family Room","Interior"); rep("dining","Interior — Dining Room","Interior");
   rep("laundry","Laundry Room","Interior"); rep("bathroom","Interior — Bathroom","Interior");
   rep("bedroom","Interior — Bedroom","Interior"); rep("office","Interior — Office","Interior");
+  rep("hallway","Interior — Hallway","Interior");
   if (d.garage === "attached") g("Attached Garage", "Structure");
   if (d.garage === "detached") g("Detached Garage", "Structure");
   if (d.systems.ac) g("Air-Conditioning Condenser", "Systems");

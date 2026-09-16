@@ -6,6 +6,7 @@ import { getTheme, THEME_FONT_HREF, ThemeTokens } from "@/lib/themes";
 import { AnnotatedPhoto, normalizeShapes } from "@/components/Annotations";
 import { normalizeOutlets, outletTotals, workingCount, hasOutletData, type OutletRow } from "@/components/Outlets";
 import { normalizeAttic, atticRated, isAttic, ATTIC_ITEMS, RATING_TONE, RATING_LABEL, type AtticData } from "@/components/Attic";
+import { normalizeSnapshot, hasSnapshot, propertyAge, fmtSqft, type Snapshot } from "@/components/Snapshot";
 import { normalizeEquipment, hasEquipment, ageOf, lifeBand, BAND_LABEL, BAND_TONE, serviceLifeFor, type EquipRow } from "@/components/Equipment";
 import { normalizeProfile, type Profile } from "@/lib/profile";
 
@@ -52,7 +53,6 @@ const OUTLET_ROWS_PER_PAGE = 22;   // uniform row height, so a count is enough
 
 /* Cover is 1 and unnumbered; contents is 2. Everything after is derived. */
 const P_ABOUT = 3;
-const P_GRADE = 4;
 type ExecChunk = { blocks:ExecBlock[]; part:number; parts:number };
 
 /* The executive summary is a flat run of blocks, so it paginates the same way
@@ -81,6 +81,11 @@ export default function ReportView({ report, urls, themeId, profile }:{ report:R
   const biz:Profile = normalizeProfile(profile);
   const t = getTheme(themeId);
   const M = buildModel(report);
+  /* A manual grade replaces the calculated one everywhere it appears — cover,
+     contents, condition page — rather than in one place, so the report can
+     never contradict itself. Section grades stay calculated. */
+  const gradeOverride = String((report as any).grade_override || "").toUpperCase();
+  if (["A","B","C","D","F"].includes(gradeOverride)) (M as any).overall = gradeOverride;
   const cover = coverImage(report, urls, M.allF);
   const reportNo = report.report_no || `PSPI-${(report.id||"").slice(0,8).toUpperCase()}`;
 
@@ -222,13 +227,18 @@ export default function ReportView({ report, urls, themeId, profile }:{ report:R
 
   /* Receptacle tally. Rooms left at zero are dropped rather than printed as a
      row of dashes, and the whole page disappears when nothing was recorded. */
+  const snap = normalizeSnapshot((report as any).snapshot);
+  const showSnap = hasSnapshot(snap);
+  const P_SNAP  = 4;
+  const P_GRADE = showSnap ? 5 : 4;
+
   const attic = normalizeAttic((report as any).attic);
   const equip = normalizeEquipment((report as any).equipment);
   const equipRows = hasEquipment(equip)
     ? equip.rows.filter(r => r.name && (r.brand || r.model || r.year))
     : [];
-  const P_EQUIP = 5;
-  const P_EXEC = equipRows.length ? 6 : 5;
+  const P_EQUIP = P_GRADE + 1;
+  const P_EXEC = P_GRADE + (equipRows.length ? 2 : 1);
   /* Every page number in the report is derived from this block, so the contents
      page and the footers can never disagree about where something is. */
   const secChunks:Chunk[] = chunks ?? M.withF.map((sx:any,i:number)=>({
@@ -303,9 +313,14 @@ export default function ReportView({ report, urls, themeId, profile }:{ report:R
 
       <TocPage biz={biz} t={t} report={report} M={M} secChunks={secChunks} execCount={execCount}
         outletPages={outletPages.length} equipPage={equipRows.length ? P_EQUIP : 0}
-        execPage={P_EXEC} pageBase={pageBase} reportNo={reportNo} pageNo={2}/>
+        snapPage={showSnap ? P_SNAP : 0} gradePage={P_GRADE} execPage={P_EXEC} pageBase={pageBase} reportNo={reportNo} pageNo={2}/>
 
       <AboutPage biz={biz} t={t} report={report} pageBase={pageBase} reportNo={reportNo} pageNo={P_ABOUT}/>
+      {showSnap && (
+        <SnapshotPage biz={biz} t={t} report={report} snap={snap} M={M}
+          pageBase={pageBase} reportNo={reportNo} pageNo={P_SNAP}/>
+      )}
+
       <GradePage biz={biz} t={t} report={report} M={M} pageBase={pageBase} reportNo={reportNo} pageNo={P_GRADE}/>
       {equipRows.length > 0 && (
         <EquipmentPage biz={biz} t={t} report={report} rows={equipRows}
@@ -781,15 +796,16 @@ function EquipmentPage({t,report,rows,pageBase,reportNo,pageNo,biz}:any){
   );
 }
 
-function TocPage({t,report,M,secChunks,execCount,outletPages,equipPage,execPage,pageBase,reportNo,pageNo,biz}:any){
+function TocPage({t,report,M,secChunks,execCount,outletPages,equipPage,snapPage,gradePage,execPage,pageBase,reportNo,pageNo,biz}:any){
   type Entry = { label:string; page:number; grade?:string; sub?:string };
 
   const groups:{ title:string; items:Entry[] }[] = [];
 
   const top:Entry[] = [
     { label:"About This Inspection", page:P_ABOUT, sub:"Standards of practice and scope" },
-    { label:"Overall Property Condition", page:P_GRADE, sub:"Summary grade by system" },
   ];
+  if(snapPage) top.push({ label:"Property Snapshot", page:snapPage, sub:"Year built, size and roof covering" });
+  top.push({ label:"Overall Property Condition", page:gradePage, sub:"Summary grade by system" });
   if(equipPage) top.push({ label:"Equipment & Service Life", page:equipPage, sub:"Makes, models and ages" });
   top.push({ label:"Executive Summary", page:execPage, sub:`${M.cP} priority · ${M.cM} monitor` });
   groups.push({ title:"The report", items:top });
@@ -805,7 +821,6 @@ function TocPage({t,report,M,secChunks,execCount,outletPages,equipPage,execPage,
       label: c.sec.name,
       page: secStart + i,
       grade: c.g?.grade,
-      sub: c.sec.subtitle || c.sec.grp,
     });
   });
   if(systems.length) groups.push({ title:"Systems & areas", items:systems });
@@ -820,37 +835,54 @@ function TocPage({t,report,M,secChunks,execCount,outletPages,equipPage,execPage,
     <div className="rv-page" style={pageBase}>
       <SecTitle t={t} title="Contents" sub={`Inspection of ${report.address}`}/>
 
-      <div style={{marginTop:14}}>
-        {groups.map((g,gi)=>(
-          <div key={gi} style={{marginBottom:20}}>
-            <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:t.accent,
-              fontWeight:700,paddingBottom:6,borderBottom:`1px solid ${t.hair}`,marginBottom:4}}>{g.title}</div>
+      {/* Contents must stay one page: its own length feeds every page number
+          after it, so splitting it would change the numbers it prints. The
+          systems list therefore runs in two columns and tightens as it grows. */}
+      {(() => {
+        const systemCount = groups.find(g => g.title === "Systems & areas")?.items.length || 0;
+        const tight = systemCount > 12;
+        const rowPad = tight ? "4.5px 0" : "6px 0";
+        const nameSize = tight ? 11.5 : 12.5;
+        const subSize = tight ? 8.5 : 9.5;
 
-            {g.items.map((e,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"baseline",gap:8,padding:"7px 0",
-                borderBottom:`1px solid ${t.hair}`}}>
-                <div style={{minWidth:0,flexShrink:1}}>
-                  <div style={{fontFamily:t.displayFont,fontSize:13,fontWeight:700,whiteSpace:"nowrap",
-                    overflow:"hidden",textOverflow:"ellipsis"}}>{e.label}</div>
-                  {e.sub ? <div style={{fontSize:9.5,color:t.sub,marginTop:1}}>{e.sub}</div> : null}
-                </div>
-
-                {/* dotted leader: the line that makes a contents page read as one */}
-                <div style={{flex:1,minWidth:18,alignSelf:"center",height:1,marginTop:2,
-                  borderBottom:`1px dotted ${t.hair}`}}/>
-
-                {e.grade ? (
-                  <span style={{fontSize:9,fontWeight:700,letterSpacing:.5,color:t.gradeColor[e.grade],
-                    border:`1px solid ${t.hair}`,borderRadius:t.radius,padding:"1px 6px"}}>{e.grade}</span>
-                ) : null}
-
-                <span style={{fontFamily:t.displayFont,fontSize:13,fontWeight:700,minWidth:22,
-                  textAlign:"right",fontVariantNumeric:"tabular-nums"}}>{e.page}</span>
-              </div>
-            ))}
+        const Row = ({ e }: { e: Entry }) => (
+          <div style={{display:"flex",alignItems:"baseline",gap:7,padding:rowPad,
+            borderBottom:`1px solid ${t.hair}`}}>
+            <div style={{minWidth:0,flexShrink:1}}>
+              <div style={{fontFamily:t.displayFont,fontSize:nameSize,fontWeight:700,whiteSpace:"nowrap",
+                overflow:"hidden",textOverflow:"ellipsis"}}>{e.label}</div>
+              {e.sub ? <div style={{fontSize:subSize,color:t.sub,marginTop:.5}}>{e.sub}</div> : null}
+            </div>
+            <div style={{flex:1,minWidth:12,alignSelf:"center",height:1,marginTop:2,
+              borderBottom:`1px dotted ${t.hair}`}}/>
+            {e.grade ? (
+              <span style={{fontSize:8.5,fontWeight:700,letterSpacing:.4,color:t.gradeColor[e.grade],
+                border:`1px solid ${t.hair}`,borderRadius:t.radius,padding:"1px 5px"}}>{e.grade}</span>
+            ) : null}
+            <span style={{fontFamily:t.displayFont,fontSize:nameSize,fontWeight:700,minWidth:20,
+              textAlign:"right",fontVariantNumeric:"tabular-nums"}}>{e.page}</span>
           </div>
-        ))}
-      </div>
+        );
+
+        return (
+          <div style={{marginTop:12}}>
+            {groups.map((g,gi)=>{
+              const twoUp = g.title === "Systems & areas" && g.items.length > 6;
+              return (
+                <div key={gi} style={{marginBottom:tight ? 13 : 18}}>
+                  <div style={{fontSize:8.5,letterSpacing:2,textTransform:"uppercase",color:t.accent,
+                    fontWeight:700,paddingBottom:5,borderBottom:`1px solid ${t.hair}`,marginBottom:3}}>{g.title}</div>
+                  {twoUp ? (
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",columnGap:22}}>
+                      {g.items.map((e,i)=><Row key={i} e={e}/>)}
+                    </div>
+                  ) : g.items.map((e,i)=><Row key={i} e={e}/>)}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       <Foot t={t} reportNo={reportNo} address={report.address} p={pageNo} biz={biz}/>
     </div>
@@ -1199,6 +1231,85 @@ function AboutPage({t,report,pageBase,reportNo,pageNo,biz}:any){
 }
 
 /* ---------------- GRADE PAGE ---------------- */
+
+
+/* Property snapshot. The facts an agent or a buyer flips back to: how old the
+   building is, how big it is, and what is on the roof — set against the
+   inspection's own particulars. */
+function SnapshotPage({t,report,snap,M,pageBase,reportNo,pageNo,biz}:any){
+  const s:Snapshot = snap;
+  const age = propertyAge(s, report.inspection_date);
+  const sqft = fmtSqft(s.sqft);
+  const grade = M.overall;
+
+  const Tile = ({label,value,note}:{label:string;value:string;note?:string}) => (
+    <div style={{flex:1,border:`1px solid ${t.hair}`,borderRadius:t.radius,padding:"20px 18px",textAlign:"center"}}>
+      <div style={{fontSize:8.5,letterSpacing:1.6,color:t.sub,textTransform:"uppercase",marginBottom:7}}>{label}</div>
+      <div style={{fontFamily:t.displayFont,fontSize:30,fontWeight:700,lineHeight:1.05,color:t.ink}}>{value}</div>
+      {note ? <div style={{fontSize:9.5,color:t.sub,marginTop:5}}>{note}</div> : null}
+    </div>
+  );
+
+  const rows:[string,string][] = [
+    ["Property address", report.address || "—"],
+    ["Prepared for", report.client || "—"],
+    ["Property type", (report as any).property_type || "—"],
+    ["Date of inspection", fmtDate(report.inspection_date)],
+    ["Inspector", report.inspector || biz?.inspector_name || "—"],
+    ["Report reference", reportNo],
+  ];
+
+  const cell:React.CSSProperties = { padding:"11px 12px", borderBottom:`1px solid ${t.hair}`, fontSize:11.5 };
+
+  return (
+    <div className="rv-page" style={pageBase}>
+      <SecTitle t={t} title="Property Snapshot" sub="The building at a glance"/>
+
+      <div style={{display:"flex",gap:12,margin:"10px 0 22px"}}>
+        <Tile label="Year built" value={s.year_built || "—"}
+          note={age !== null ? `${age} year${age===1?"":"s"} old at inspection` : undefined}/>
+        <Tile label="Living area" value={sqft || "—"} note={sqft ? "square feet" : undefined}/>
+        <Tile label="Overall grade" value={grade}
+          note={GRADE_DESC[grade] ? GRADE_DESC[grade].split(" — ")[0] : undefined}/>
+      </div>
+
+      {s.roof_type ? (
+        <div style={{display:"flex",alignItems:"center",gap:14,border:`1px solid ${t.hair}`,
+          borderLeft:`3px solid ${t.accent}`,borderRadius:t.radius,padding:"15px 18px",marginBottom:22}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:8.5,letterSpacing:1.6,color:t.sub,textTransform:"uppercase",marginBottom:3}}>Roof covering</div>
+            <div style={{fontFamily:t.displayFont,fontSize:18,fontWeight:700}}>{s.roof_type}</div>
+          </div>
+          <div style={{fontSize:10,color:t.sub,textAlign:"right",maxWidth:"3.1in",lineHeight:1.55}}>
+            Covering type was identified visually from readily accessible areas. Remaining service
+            life depends on installation, ventilation and exposure.
+          </div>
+        </div>
+      ) : null}
+
+      <div style={{fontFamily:t.displayFont,fontSize:15,fontWeight:700,marginBottom:9}}>Inspection particulars</div>
+      <table style={{width:"100%",borderCollapse:"collapse"}}>
+        <tbody>
+          {rows.map(([k,v],i)=>(
+            <tr key={i}>
+              <td style={{...cell,color:t.sub,width:"1.9in"}}>{k}</td>
+              <td style={{...cell,fontWeight:600}}>{v}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div style={{marginTop:18,fontSize:10.5,color:t.sub,lineHeight:1.65,
+        borderTop:`1px solid ${t.hair}`,paddingTop:12}}>
+        Year built and living area are taken from public record or from information supplied by the
+        client, and were not independently verified. Square footage is not a survey and should not be
+        relied upon for valuation.
+      </div>
+
+      <Foot t={t} reportNo={reportNo} address={report.address} p={pageNo} biz={biz}/>
+    </div>
+  );
+}
 
 function GradePage({t,report,M,pageBase,reportNo,pageNo,biz}:any){
   return (
