@@ -11,6 +11,31 @@ const clean = (v: any, n = MAX) => String(v ?? "").trim().slice(0, n);
 const OPEN_HOUR = 8;      // earliest start
 const CLOSE_HOUR = 17;    // latest start
 const SLOT_MIN = 30;
+const TZ = "America/Detroit";
+
+/* The server runs in UTC, but every time on this form is Michigan time.
+   These convert between the two so a 9:00 AM booking is stored as 9:00 AM
+   Detroit, not 9:00 AM UTC (5:00 AM here). */
+function tzOffsetMs(d: Date) {
+  const p: Record<string, string> = {};
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(d).forEach(x => { p[x.type] = x.value; });
+  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+  return asUTC - d.getTime();
+}
+function detroitTime(day: string, hh = 0, mm = 0) {
+  const [y, m, d] = day.split("-").map(Number);
+  const guess = Date.UTC(y, m - 1, d, hh, mm);
+  return new Date(guess - tzOffsetMs(new Date(guess)));
+}
+function detroitHHMM(d: Date) {
+  return new Intl.DateTimeFormat("en-US", { timeZone: TZ, hourCycle: "h23", hour: "2-digit", minute: "2-digit" }).format(d);
+}
+function detroitDay(d: Date) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +46,7 @@ export async function POST(req: NextRequest) {
     const email = clean(b.email, 160);
     const address = clean(b.address, 240);
     const services: string[] = Array.isArray(b.services)
-      ? b.services.slice(0, 3).map((s: any) => clean(s, 60)).filter(Boolean)
+      ? b.services.slice(0, 8).map((s: any) => clean(s, 60)).filter(Boolean)
       : [];
     const startsAt = clean(b.starts_at, 40);
     const notes = clean(b.notes, 1000);
@@ -34,7 +59,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Please leave a phone number or an email so we can confirm." }, { status: 400 });
     }
 
-    const when = new Date(startsAt);
+    // A bare "YYYY-MM-DDTHH:MM" from the form is Michigan wall-clock time.
+    const local = startsAt.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+    const when = local && !/(Z|[+-]\d{2}:?\d{2})$/.test(startsAt)
+      ? detroitTime(local[1], +local[2], +local[3])
+      : new Date(startsAt);
     if (isNaN(when.getTime())) return NextResponse.json({ error: "That date and time didn't come through." }, { status: 400 });
     if (when.getTime() < Date.now() - 60_000) {
       return NextResponse.json({ error: "That time is in the past." }, { status: 400 });
@@ -44,8 +73,8 @@ export async function POST(req: NextRequest) {
 
     /* Taken slots are checked again here, not only in the browser: two people
        can open the form at once and pick the same morning. */
-    const dayStart = new Date(when); dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(when); dayEnd.setHours(23, 59, 59, 999);
+    const dayStart = detroitTime(detroitDay(when));
+    const dayEnd = new Date(dayStart.getTime() + 24 * 3600_000 - 1);
     const { data: sameDay } = await db.from("appointments")
       .select("starts_at,duration_min,status")
       .gte("starts_at", dayStart.toISOString())
@@ -118,8 +147,8 @@ export async function GET(req: NextRequest) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return NextResponse.json({ taken: [] });
 
     const db = admin();
-    const from = new Date(`${day}T00:00:00`);
-    const to = new Date(`${day}T23:59:59`);
+    const from = detroitTime(day);
+    const to = new Date(from.getTime() + 24 * 3600_000 - 1);
     const { data } = await db.from("appointments")
       .select("starts_at,duration_min,status")
       .gte("starts_at", from.toISOString())
@@ -132,7 +161,7 @@ export async function GET(req: NextRequest) {
       const mins = a.duration_min || 180;
       for (let m = 0; m < mins; m += SLOT_MIN) {
         const t = new Date(s.getTime() + m * 60_000);
-        taken.push(`${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`);
+        taken.push(detroitHHMM(t));
       }
     });
     return NextResponse.json({ taken, open: OPEN_HOUR, close: CLOSE_HOUR, slot: SLOT_MIN });
