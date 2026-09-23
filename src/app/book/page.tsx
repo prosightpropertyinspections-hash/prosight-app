@@ -194,7 +194,7 @@ export default function BookPage() {
     { h: "Not sure which?", b: ["Buying a home: Home Buyer.", "Selling: Pre-Listing.", "Just need a sewer, radon or mold test: Testing Only."], f: `Or call ${PHONE} and we'll help you choose.` },
     { h: "Why we need this", b: ["Plan the right amount of time", "Bring the right equipment", "Route to the property", "Prepare for your inspection"], f: "Square footage and year built are optional. Leave them blank if you're not sure." },
     { h: "Why add testing?", b: ["Sewer lines fail underground, out of sight", "Radon is common in Southeast Michigan", "Mold hides behind finishes"], f: "Testing on the same visit saves a second trip." },
-    { h: "About your visit", b: ["Most inspections take about three hours", "You're welcome to attend, and encouraged", "Your digital report arrives the same day"], f: "Times are Michigan time." },
+    { h: "About your visit", b: ["Most inspections take about two hours", "You're welcome to attend, and encouraged", "Your digital report arrives the same day"], f: "Times are Michigan time." },
     { h: "Your details", b: ["Used only to confirm this booking", "Never shared or sold", "One text, only if you ask for it"], f: "" },
     { h: "What happens next", b: ["We confirm your time by text or email", "Nothing is charged now", "Change anything with a quick call"], f: "" },
   ][step];
@@ -266,7 +266,7 @@ export default function BookPage() {
               {step === 0 && "Choose one. You can add sewer, radon or mold testing on the next steps."}
               {step === 1 && "Tell us about the property to be inspected."}
               {step === 2 && (primary === "testing" ? "Choose one or more." : "Optional. Skip this step if you only need the inspection.")}
-              {step === 3 && "Available times are shown. Most inspections take about three hours."}
+              {step === 3 && "Available times are shown. Most inspections take about two hours."}
               {step === 4 && "So we can confirm your booking."}
               {step === 5 && "Check everything below. Nothing is charged now."}
             </p>
@@ -428,7 +428,7 @@ export default function BookPage() {
                     <section>
                       <header><h2>Appointment</h2><button type="button" onClick={() => go(3)}>Edit</button></header>
                       <p><strong>{prettyWhen}</strong></p>
-                      <p className="bk-muted">About three hours on site</p>
+                      <p className="bk-muted">About two hours on site</p>
                     </section>
                     <section>
                       <header><h2>Contact</h2><button type="button" onClick={() => go(4)}>Edit</button></header>
@@ -573,7 +573,7 @@ const BK_CSS = `
 .bk-incl .bk-box{ background:var(--ok); border-color:var(--ok); }
 .bk-tag{ flex-shrink:0; align-self:center; font-size:12px; font-weight:700; color:var(--ok); background:#e3f3ec; padding:4px 10px; border-radius:999px; }
 
-.bk-days{ display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; scrollbar-width:thin; }
+.bk-days{ display:flex; flex-wrap:wrap; gap:8px; }
 .bk-days button{ flex:0 0 auto; width:64px; padding:10px 0; border:1px solid #cfd7e0; border-radius:10px; background:#fff;
   font:inherit; color:var(--ink); cursor:pointer; text-align:center; }
 .bk-days em{ display:block; font-style:normal; font-size:11px; color:var(--faint); text-transform:uppercase; letter-spacing:.6px; }
@@ -670,6 +670,8 @@ const BK_CSS = `
   .bk-card > .bk-form, .bk-card > .bk-days, .bk-card > .bk-slots, .bk-card > .bk-hint{ margin:16px; }
   .bk-card > .bk-days{ margin-bottom:0; }
   .bk-slots{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .bk-days{ flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .bk-days::-webkit-scrollbar{ display:none; }
   .bk-nav{ flex-wrap:wrap; }
   .bk-navr{ width:100%; flex-direction:column-reverse; align-items:stretch; gap:8px; margin:0; order:-1; }
   .bk-why{ text-align:center; }
