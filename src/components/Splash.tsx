@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 /* Launch screen: the company logo held for three seconds with the inspector's
    arm working. No fades — it is simply there, then it is gone. Once per
    session; a splash on every navigation is an obstacle, not branding. */
-export default function Splash() {
+function SplashInner() {
   const [show, setShow] = useState(true);
 
   useEffect(() => {
@@ -58,3 +59,11 @@ const SP_CSS = `
 @media (prefers-reduced-motion: reduce){ .sp *{ animation:none !important; } }
 @media print{ .sp{ display:none !important; } }
 `;
+
+/* No splash on the public booking page: a customer scheduling an
+   inspection shouldn't wait on a launch screen. */
+export default function Splash() {
+  const path = usePathname() || "";
+  if (path.startsWith("/book")) return null;
+  return <SplashInner />;
+}
