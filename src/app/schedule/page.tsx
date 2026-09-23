@@ -6,14 +6,17 @@ import AuthGate from "@/components/AuthGate";
 import UserMenu from "@/components/UserMenu";
 import Intake, { type IntakePrefill } from "@/components/Intake";
 import { createClient } from "@/lib/supabase-browser";
+import { BOOKING_MIN, conflicts } from "@/lib/availability";
 
 type Appt = {
   id: string;
   client_name: string; phone: string; email: string; address: string;
   service: string; services: string[] | null; fee: number; paid: boolean;
   starts_at: string; duration_min: number;
-  status: "scheduled" | "completed" | "canceled" | "rescheduled";
+  status: "requested" | "scheduled" | "completed" | "canceled" | "rescheduled";
   confirmation_sent_at?: string | null;
+  source?: string | null;
+  sms_consent?: boolean | null;
   notes: string;
 };
 
@@ -40,12 +43,14 @@ const serviceText = (a: Partial<Appt>) => serviceList(a).join(" + ") || "No serv
 /* One place decides what a booking looks like, so the calendar, the day panel
    and the summary can never drift apart. */
 const STATUS_TONE: Record<string, string> = {
+  requested:   "#a78bfa",
   scheduled:   "#c0813a",
   completed:   "#2f9d6b",
   canceled:    "#d14343",
   rescheduled: "#5aa9e6",
 };
 const STATUS_LABEL: Record<string, string> = {
+  requested:   "Request",
   scheduled:   "Scheduled",
   completed:   "Completed",
   canceled:    "Canceled",
@@ -76,6 +81,7 @@ function Schedule() {
   const [editing, setEditing] = useState<Partial<Appt> | null>(null);
   const [viewing, setViewing] = useState<Appt | null>(null);
   const [starting, setStarting] = useState<Appt | null>(null);
+  const [requests, setRequests] = useState<Appt[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,6 +90,11 @@ function Schedule() {
     const { data } = await sb.from("appointments").select("*")
       .gte("starts_at", from).lt("starts_at", to).order("starts_at", { ascending: true });
     setAppts((data as Appt[]) || []);
+    // Website requests waiting on a yes or no, whatever month they fall in.
+    const { data: req } = await sb.from("appointments").select("*")
+      .eq("status", "requested").gte("starts_at", new Date(Date.now() - 86_400_000).toISOString())
+      .order("starts_at", { ascending: true });
+    setRequests((req as Appt[]) || []);
     setLoading(false);
   }, [cursor]);
   useEffect(() => { load(); }, [load]);
@@ -121,7 +132,7 @@ function Schedule() {
       services: serviceList(a),
       service: serviceList(a)[0] || SERVICES[0],
       fee: Number(a.fee || 0), paid: !!a.paid,
-      starts_at: a.starts_at, duration_min: Number(a.duration_min || 180),
+      starts_at: a.starts_at, duration_min: Number(a.duration_min || BOOKING_MIN),
       status: a.status || "scheduled", notes: a.notes || "",
     };
     if (a.id) await sb.from("appointments").update(row).eq("id", a.id);
@@ -133,6 +144,50 @@ function Schedule() {
     setViewing({ ...a, status });
     load();
   }
+  /* A website request becomes real work only when accepted. Accepting checks
+     it against anything booked since, then offers the confirmation text if
+     the customer asked for one. */
+  async function accept(a: Appt) {
+    const s = new Date(a.starts_at);
+    const dayFrom = new Date(s); dayFrom.setHours(0, 0, 0, 0);
+    const dayTo = new Date(s); dayTo.setHours(23, 59, 59, 999);
+    const { data: day } = await sb.from("appointments").select("id,client_name,starts_at,duration_min,status")
+      .gte("starts_at", dayFrom.toISOString()).lte("starts_at", dayTo.toISOString());
+    const hit = conflicts(s.getTime(), a.duration_min || BOOKING_MIN, (day as Appt[]) || [], a.id)
+      .filter(x => x.status !== "requested");
+    if (hit.length && !(await showConfirm({
+      title: "This overlaps another booking",
+      body: hit.map(x => `${x.client_name || "No name"} at ${fmtTime(x.starts_at)}`).join(", ") + ". Accept anyway?",
+      confirmText: "Accept anyway",
+    }))) return;
+
+    await sb.from("appointments").update({ status: "scheduled" }).eq("id", a.id);
+    const accepted = { ...a, status: "scheduled" as const };
+    setViewing(accepted);
+    load();
+
+    if (a.phone && a.sms_consent) {
+      if (await showConfirm({ title: "Request accepted", body: `Text ${a.client_name || "the client"} a confirmation now?`, confirmText: "Send text", cancelText: "Not now" })) {
+        try {
+          const res = await fetch("/api/sms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ appointmentId: a.id }) });
+          const j = await res.json().catch(() => ({}));
+          if (!j.ok) await showAlert("Text not sent", j.error || "Send it from the booking instead.");
+          load();
+        } catch { await showAlert("Text not sent", "Send it from the booking instead."); }
+      }
+    } else {
+      await showAlert("Request accepted", a.phone || a.email
+        ? `They didn't ask for a text, so confirm by ${a.phone ? "calling" : "email"}: ${a.phone || a.email}.`
+        : "No phone or email on this request.");
+    }
+  }
+  async function decline(a: Appt) {
+    if (!(await showConfirm({ title: "Decline this request?", body: "It moves to Canceled. Let the customer know, since they won't hear otherwise.", confirmText: "Decline", danger: true }))) return;
+    await sb.from("appointments").update({ status: "canceled" }).eq("id", a.id);
+    setViewing(null);
+    load();
+  }
+
   async function remove(id: string) {
     if(!(await showConfirm({ title:"Delete this appointment?", body:"The booking and its details will be removed from your schedule.", confirmText:"Delete", danger:true }))) return;
     await sb.from("appointments").delete().eq("id", id);
@@ -141,7 +196,7 @@ function Schedule() {
 
   function newAt(day: Date) {
     const d = new Date(day); d.setHours(9, 0, 0, 0);
-    setEditing({ starts_at: d.toISOString(), services: [SERVICES[0]], duration_min: 180, fee: 0, status: "scheduled" });
+    setEditing({ starts_at: d.toISOString(), services: [SERVICES[0]], duration_min: BOOKING_MIN, fee: 0, status: "scheduled" });
   }
 
   const selKey = ymd(selected);
@@ -205,7 +260,7 @@ function Schedule() {
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(d => <div key={d}>{d}</div>)}
             </div>
             <div className="ps-legend">
-              {(["scheduled","completed","rescheduled","canceled"] as const).map(k => (
+              {(["requested","scheduled","completed","rescheduled","canceled"] as const).map(k => (
                 <span key={k}><i style={{ background: STATUS_TONE[k] }} />{STATUS_LABEL[k]}</span>
               ))}
             </div>
@@ -231,6 +286,28 @@ function Schedule() {
           </div>
 
           <aside className="ps-side">
+            {requests.length > 0 && (
+              <div className="ps-panel ps-req">
+                <div className="ps-panel-h">
+                  <span>Website requests <b className="ps-count">{requests.length}</b></span>
+                </div>
+                {requests.map(a => (
+                  <div key={a.id} className="ps-reqrow">
+                    <button className="ps-appt" onClick={() => { setSelected(new Date(a.starts_at)); setViewing(a); }}>
+                      <span className="ps-rail2" style={{ background: STATUS_TONE.requested }} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span className="ps-appt-t">{new Date(a.starts_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {fmtTime(a.starts_at)}</span>
+                        <span className="ps-appt-s">{a.client_name || "No name"} · {serviceText(a)}</span>
+                      </span>
+                    </button>
+                    <div className="ps-reqbtns">
+                      <button className="ps-yes" onClick={() => accept(a)}>Accept</button>
+                      <button className="ps-no" onClick={() => decline(a)}>Decline</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="ps-panel">
               <div className="ps-panel-h">
                 <span>{selected.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>
@@ -278,6 +355,8 @@ function Schedule() {
           onStart={() => setStarting(viewing)}
           onRefresh={load}
           onDelete={() => remove(viewing.id)}
+          onAccept={() => accept(viewing)}
+          onDecline={() => decline(viewing)}
         />
       )}
       {editing && <ApptModal value={editing} onCancel={() => setEditing(null)} onSave={save} onDelete={remove} />}
@@ -348,8 +427,9 @@ function ApptModal({ value, onCancel, onSave, onDelete }: {
 
           <div className="ps-f ps-wide"><span>When</span>
             <WhenPicker
+              excludeId={a.id}
               value={a.starts_at ? new Date(a.starts_at) : new Date()}
-              duration={a.duration_min ?? 180}
+              duration={a.duration_min ?? BOOKING_MIN}
               onChange={(d, dur) => set({ starts_at: d.toISOString(), duration_min: dur })}
             />
           </div>
@@ -387,10 +467,30 @@ function ApptModal({ value, onCancel, onSave, onDelete }: {
 /* The browser's own datetime control cannot be styled and looks nothing like
    the rest of the app, so day, time and duration are picked here instead —
    which also suits booking, where times land on the half hour. */
-function WhenPicker({ value, duration, onChange }: {
-  value: Date; duration: number; onChange: (d: Date, dur: number) => void;
+function WhenPicker({ value, duration, onChange, excludeId }: {
+  value: Date; duration: number; onChange: (d: Date, dur: number) => void; excludeId?: string;
 }) {
   const [month, setMonth] = useState(() => new Date(value.getFullYear(), value.getMonth(), 1));
+
+  /* What is already booked on the chosen day, so times that would overlap show
+     as taken, including the lead-in before a booking, the same rule the
+     website uses. The booking being edited never blocks itself. */
+  const [dayBusy, setDayBusy] = useState<Appt[]>([]);
+  const dayKey = ymd(value);
+  useEffect(() => {
+    let live = true;
+    const from = new Date(value); from.setHours(0, 0, 0, 0);
+    const to = new Date(value); to.setHours(23, 59, 59, 999);
+    createClient().from("appointments").select("id,client_name,starts_at,duration_min,status")
+      .gte("starts_at", from.toISOString()).lte("starts_at", to.toISOString())
+      .then(({ data }) => { if (live) setDayBusy((data as Appt[]) || []); });
+    return () => { live = false; };
+  }, [dayKey]);
+  const clashAt = (h: number, m: number) => {
+    const t = new Date(value); t.setHours(h, m, 0, 0);
+    return conflicts(t.getTime(), duration, dayBusy, excludeId);
+  };
+  const current = conflicts(value.getTime(), duration, dayBusy, excludeId);
 
   const days = useMemo(() => {
     const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -411,7 +511,13 @@ function WhenPicker({ value, duration, onChange }: {
     next.setHours(value.getHours(), value.getMinutes(), 0, 0);
     onChange(next, duration);
   }
-  function pickTime(h: number, m: number) {
+  async function pickTime(h: number, m: number) {
+    const hit = clashAt(h, m);
+    if (hit.length && !(await showConfirm({
+      title: "That time overlaps",
+      body: hit.map(x => `${x.client_name || "No name"} at ${fmtTime(x.starts_at)}`).join(", ") + ". Book it anyway?",
+      confirmText: "Book anyway",
+    }))) return;
     const next = new Date(value);
     next.setHours(h, m, 0, 0);
     onChange(next, duration);
@@ -449,8 +555,10 @@ function WhenPicker({ value, duration, onChange }: {
           <div className="wp-slots">
             {slots.map(({ h, m }) => {
               const on = value.getHours() === h && value.getMinutes() === m;
+              const busy = clashAt(h, m).length > 0;
               const label = `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
-              return <button key={`${h}-${m}`} type="button" data-on={on ? "1" : "0"} onClick={() => pickTime(h, m)}>{label}</button>;
+              return <button key={`${h}-${m}`} type="button" data-on={on ? "1" : "0"} data-busy={busy ? "1" : "0"}
+                title={busy ? "Overlaps another booking" : undefined} onClick={() => pickTime(h, m)}>{label}</button>;
             })}
           </div>
         </div>
@@ -466,6 +574,11 @@ function WhenPicker({ value, duration, onChange }: {
       <div className="wp-sum">
         {value.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} ·{" "}
         {fmtTime(value.toISOString())} to {fmtTime(ends.toISOString())}
+        {current.length > 0 && (
+          <div className="wp-warn">
+            Overlaps {current.map(x => `${x.client_name || "No name"} at ${fmtTime(x.starts_at)}`).join(", ")}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -513,7 +626,7 @@ function ConfirmText({ a, onSent }: { a: Appt; onSent: () => void }) {
   );
 }
 
-function ApptSummary({ a, onClose, onEdit, onStatus, onReschedule, onStart, onDelete, onRefresh }: {
+function ApptSummary({ a, onClose, onEdit, onStatus, onReschedule, onStart, onDelete, onRefresh, onAccept, onDecline }: {
   a: Appt;
   onClose: () => void;
   onEdit: () => void;
@@ -522,6 +635,8 @@ function ApptSummary({ a, onClose, onEdit, onStatus, onReschedule, onStart, onDe
   onStart: () => void;
   onDelete: () => void;
   onRefresh: () => void;
+  onAccept: () => void;
+  onDecline: () => void;
 }) {
   const start = new Date(a.starts_at);
   const end = new Date(start.getTime() + (a.duration_min || 0) * 60000);
@@ -547,6 +662,16 @@ function ApptSummary({ a, onClose, onEdit, onStatus, onReschedule, onStart, onDe
         </div>
 
         <div className="sm-body">
+          {a.status === "requested" && (
+            <div className="sm-req">
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="sm-sms-t">Booked from the website</div>
+                <div className="sm-sms-s">Waiting on you. The customer hears nothing until you accept.</div>
+              </div>
+              <button className="ps-no" onClick={onDecline}>Decline</button>
+              <button className="ps-yes" onClick={onAccept}>Accept</button>
+            </div>
+          )}
           <div className="sm-strip">
             <span className="sm-badge" style={{ color: c, background: `color-mix(in srgb, ${c} 14%, transparent)` }}>{statusLabel}</span>
             <span className="sm-fee">{money(Number(a.fee || 0))}</span>
@@ -774,6 +899,21 @@ const SCHED_CSS = `
 .wp-dur button:hover{ border-color:#2a4767; color:var(--ps-ink); }
 .wp-dur button[data-on="1"]{ background:linear-gradient(150deg,#45b0ee,#1d6fa8); border-color:transparent;
   color:#fff; font-weight:650; }
+.wp-slots button[data-busy="1"]:not([data-on="1"]){ opacity:.35; text-decoration:line-through; }
+.wp-warn{ margin-top:6px; font-size:12px; font-weight:600; color:var(--ps-amber); }
+.ps-req{ border-color:rgba(167,139,250,.45); }
+.ps-count{ display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 6px; margin-left:6px; border-radius:10px;
+  background:#a78bfa; color:#0b1220; font-size:11px; font-weight:700; }
+.ps-reqrow{ border-top:1px solid var(--ps-line-soft); }
+.ps-reqrow .ps-appt{ border-top:0 !important; }
+.ps-reqbtns{ display:flex; gap:8px; padding:0 14px 12px; }
+.ps-yes, .ps-no{ flex:1; padding:9px 12px; border-radius:9px; font:inherit; font-size:13px; font-weight:650; cursor:pointer; }
+.ps-yes{ border:0; color:#fff; background:linear-gradient(150deg,#2f9d6b,#237a53); }
+.ps-no{ border:1px solid var(--ps-line); color:var(--ps-ink-2); background:transparent; }
+.ps-no:hover{ border-color:#d14343; color:#ff9a91; }
+.sm-req{ display:flex; align-items:center; gap:10px; padding:13px 15px; margin-bottom:12px; border-radius:12px;
+  border:1px solid rgba(167,139,250,.4); background:rgba(167,139,250,.08); }
+.sm-req .ps-yes, .sm-req .ps-no{ flex:0 0 auto; }
 .wp-sum{ padding:11px 15px; background:rgba(69,176,238,.06); border-top:1px solid var(--ps-line-soft);
   font-size:12.5px; color:var(--ps-ink-2); }
 

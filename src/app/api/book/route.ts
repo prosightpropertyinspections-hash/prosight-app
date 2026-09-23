@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { admin } from "@/lib/supabase-admin";
+import { BOOKING_MIN, conflicts } from "@/lib/availability";
 
 /* Public booking endpoint. Anyone on the marketing site can reach it, so it is
    written defensively: it trusts nothing from the browser, writes only the
@@ -11,7 +12,7 @@ const clean = (v: any, n = MAX) => String(v ?? "").trim().slice(0, n);
 const OPEN_HOUR = 8;      // earliest start
 const CLOSE_HOUR = 17;    // latest start
 const SLOT_MIN = 30;
-const DURATION_MIN = 120; // a website booking holds two hours
+const DURATION_MIN = BOOKING_MIN; // a website booking holds two hours
 const TZ = "America/Detroit";
 
 /* The server runs in UTC, but every time on this form is Michigan time.
@@ -81,16 +82,8 @@ export async function POST(req: NextRequest) {
       .gte("starts_at", dayStart.toISOString())
       .lte("starts_at", dayEnd.toISOString());
 
-    // The new inspection must not overlap an existing one at either end:
-    // starting inside it, or running into its start.
-    const newStart = when.getTime();
-    const newEnd = newStart + DURATION_MIN * 60_000;
-    const clash = (sameDay || []).some((a: any) => {
-      if (a.status === "canceled") return false;
-      const s = new Date(a.starts_at).getTime();
-      const e = s + (a.duration_min || DURATION_MIN) * 60_000;
-      return newStart < e && newEnd > s;
-    });
+    // Same rule as the schedule: see src/lib/availability.ts
+    const clash = conflicts(when.getTime(), DURATION_MIN, sameDay || []).length > 0;
     if (clash) {
       return NextResponse.json({ error: "That time was just taken. Please choose another." }, { status: 409 });
     }
@@ -171,19 +164,12 @@ export async function GET(req: NextRequest) {
     /* A start time is unavailable if a two-hour inspection starting then would
        overlap any booking: so a 11:30 booking also blocks 10:00 through 11:00,
        not just the hours it occupies. */
-    const busy = (data || [])
-      .filter((a: any) => a.status !== "canceled")
-      .map((a: any) => {
-        const s = new Date(a.starts_at).getTime();
-        return [s, s + (a.duration_min || DURATION_MIN) * 60_000];
-      });
     const taken: string[] = [];
     for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h++) {
       for (let m = 0; m < 60; m += SLOT_MIN) {
         if (h === CLOSE_HOUR && m > 0) break;
         const st = detroitTime(day, h, m).getTime();
-        const en = st + DURATION_MIN * 60_000;
-        if (busy.some(([s, e]) => st < e && en > s)) {
+        if (conflicts(st, DURATION_MIN, data || []).length) {
           taken.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
         }
       }
