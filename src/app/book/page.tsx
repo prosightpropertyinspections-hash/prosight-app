@@ -205,7 +205,7 @@ export default function BookPage() {
 
       <header className="bk-bar">
         <a className="bk-home" href={SITE}>
-          <img src="/logo-ondark.svg" alt="ProSight Property Inspections" />
+          <img src="/logo-ondark-tight.svg" alt="ProSight Property Inspections" />
         </a>
         <a className="bk-call" href={TEL}>
           <span className="bk-need">Need help?</span>
@@ -489,7 +489,7 @@ const BK_CSS = `
 
 .bk-bar{ background:var(--navy); display:flex; align-items:center; justify-content:space-between; gap:16px;
   padding:12px 28px; padding-top:calc(12px + env(safe-area-inset-top,0px)); }
-.bk-home img{ height:50px; width:auto; display:block; }
+.bk-home img{ height:58px; width:auto; display:block; }
 .bk-call{ display:flex; align-items:center; gap:8px; color:#fff; text-decoration:none; font-size:14.5px; font-weight:600; white-space:nowrap; }
 .bk-call .bk-need{ color:rgba(255,255,255,.62); font-weight:500; margin-right:4px; }
 .bk-call svg{ width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.7; }
@@ -650,7 +650,7 @@ const BK_CSS = `
 }
 @media (max-width:620px){
   .bk-bar{ padding:10px 16px; padding-top:calc(10px + env(safe-area-inset-top,0px)); }
-  .bk-home img{ height:40px; }
+  .bk-home img{ height:46px; }
   .bk-call .bk-need{ display:none; }
   .bk-call{ font-size:14px; }
   .bk-wrap{ padding:24px 16px 48px; }
