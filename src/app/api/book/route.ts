@@ -104,8 +104,17 @@ export async function POST(req: NextRequest) {
       sms_consent_at: consent ? new Date().toISOString() : null,
     };
 
+    // Website bookings belong to the business owner's account, since no one
+    // is signed in when a customer books.
+    row.owner = process.env.BOOKING_OWNER_ID || await soleUserId(db);
+    if (!row.owner) {
+      console.error("book: set BOOKING_OWNER_ID - could not pick an owner account");
+      return NextResponse.json({ error: "We couldn't save that request. Please call us instead." }, { status: 500 });
+    }
+
     const { data, error } = await db.from("appointments").insert(row).select("id").single();
     if (error) {
+      console.error("book insert failed:", error);
       return NextResponse.json({ error: "We couldn't save that request. Please call us instead." }, { status: 500 });
     }
 
@@ -168,4 +177,14 @@ export async function GET(req: NextRequest) {
   } catch {
     return NextResponse.json({ taken: [] });
   }
+}
+
+/* If there is exactly one account, website bookings go to it. With more than
+   one, BOOKING_OWNER_ID must say which. */
+async function soleUserId(db: any): Promise<string | null> {
+  try {
+    const { data } = await db.auth.admin.listUsers({ page: 1, perPage: 2 });
+    const users = data?.users || [];
+    return users.length === 1 ? users[0].id : null;
+  } catch { return null; }
 }
