@@ -13,6 +13,7 @@ import type { Report, Finding, Severity } from "@/lib/types";
 import { AnnotationEditor, AnnotatedPhoto, normalizeShapes, type Shape } from "@/components/Annotations";
 import { SnapshotPanel, normalizeSnapshot, EMPTY_SNAPSHOT, type Snapshot } from "@/components/Snapshot";
 import { AtticPanel, normalizeAttic, isAttic, type AtticData } from "@/components/Attic";
+import { SewerVideoPanel, isSewer } from "@/components/SewerVideo";
 import { EquipmentPanel, normalizeEquipment, seedEquipment, isMechanical, type EquipData, type EquipRow } from "@/components/Equipment";
 import { OutletEditor, OutletInline, normalizeOutlets, seedRowsFromSections, rowFor, upsertRow, outletsApplyTo, type OutletData, type OutletRow } from "@/components/Outlets";
 
@@ -184,6 +185,12 @@ function Editor(){
     const j=await readJson(res);
     if(j?.error) throw new Error(j.error);
     return { ...j, plate_path: uj?.path || null } as Partial<EquipRow>;
+  }
+
+  async function saveSewerVideo(url:string){
+    setReport(prev => prev ? ({ ...prev, sewer_video_url: url || null } as any) : prev);
+    const { error } = await sb.from("reports").update({ sewer_video_url: url || null }).eq("id", id);
+    if(error) showAlert("Could not save the video link: " + error.message);
   }
 
   async function saveAttic(d:AtticData){
@@ -376,6 +383,9 @@ function Editor(){
                 inspectionDate={report!.inspection_date}
                 onReadPlate={readPlate}
               />
+            )}
+            {isSewer(section.name) && (
+              <SewerVideoPanel value={(report as any).sewer_video_url || ""} onSave={saveSewerVideo} />
             )}
             {isAttic(section.name) && (
               <AtticPanel

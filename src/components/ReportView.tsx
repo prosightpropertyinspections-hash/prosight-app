@@ -5,6 +5,7 @@ import { buildModel, GRADE_DESC, coverImage } from "@/lib/report-model";
 import { getTheme, THEME_FONT_HREF, ThemeTokens } from "@/lib/themes";
 import { AnnotatedPhoto, normalizeShapes } from "@/components/Annotations";
 import { normalizeOutlets, outletTotals, workingCount, hasOutletData, type OutletRow } from "@/components/Outlets";
+import { isSewer, normalizeVideoUrl, displayUrl } from "@/components/SewerVideo";
 import { normalizeAttic, atticRated, isAttic, ATTIC_ITEMS, RATING_TONE, RATING_LABEL, type AtticData } from "@/components/Attic";
 import { normalizeSnapshot, hasSnapshot, propertyAge, fmtSqft, type Snapshot } from "@/components/Snapshot";
 import { normalizeEquipment, hasEquipment, ageOf, lifeBand, BAND_LABEL, BAND_TONE, serviceLifeFor, type EquipRow } from "@/components/Equipment";
@@ -238,6 +239,7 @@ export default function ReportView({ report, urls, themeId, profile, beforeScope
   const P_GRADE = showSnap ? 5 : 4;
 
   const attic = normalizeAttic((report as any).attic);
+  const sewerUrl = normalizeVideoUrl((report as any).sewer_video_url || "");
   const equip = normalizeEquipment((report as any).equipment);
   const equipRows = hasEquipment(equip)
     ? equip.rows.filter(r => r.name && (r.brand || r.model || r.year))
@@ -342,6 +344,7 @@ export default function ReportView({ report, urls, themeId, profile, beforeScope
         <SectionPage biz={biz} key={`${c.sec.id}-${c.part}`} t={t} s={c.sec} g={c.g} idx={c.idx}
           findings={c.findings} part={c.part} parts={c.parts}
           attic={isAttic(c.sec.name) ? attic : null}
+          sewerUrl={isSewer(c.sec.name) ? sewerUrl : ""}
           urls={urls} pageBase={pageBase} reportNo={reportNo} address={report.address}
           pageNo={P_EXEC + execCount + i}/>
       ))}
@@ -381,6 +384,7 @@ export default function ReportView({ report, urls, themeId, profile, beforeScope
                 <div data-mh={sec.id}>
                   <SectionHeader t={t} s={sec} g={g} idx={i} part={1} parts={1}/>
                   {isAttic(sec.name) && atticRated(attic) && <AtticGrid t={t} d={attic}/>}
+                  {isSewer(sec.name) && sewerUrl && <SewerVideoBlock t={t} url={sewerUrl}/>}
                 </div>
                 {(sec.findings||[]).map((f:any)=>(
                   <div key={f.id} data-mf={f.id}
@@ -1639,6 +1643,29 @@ function SectionHeader({t,s,g,idx,part=1,parts=1}:any){
 
 /* Attic ratings. A client never goes up there, so a graded grid communicates
    the state of the space faster than prose can. */
+/* The sewer camera recording, linked from the top of the Sewer Scope section.
+   A real link, so it opens from the online report and stays clickable in a
+   saved PDF; the short address is printed too for a paper copy. */
+function SewerVideoBlock({t,url}:{t:ThemeTokens;url:string}){
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      style={{display:"flex",alignItems:"center",gap:14,marginBottom:16,padding:"12px 15px",
+        border:`1px solid ${t.hair}`,borderLeft:`3px solid ${t.accent}`,borderRadius:t.radius,
+        color:"inherit",textDecoration:"none",breakInside:"avoid"}}>
+      <span style={{flexShrink:0,width:38,height:38,borderRadius:"50%",background:t.accent,
+        display:"grid",placeItems:"center"}}>
+        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z" fill="#fff"/></svg>
+      </span>
+      <span style={{flex:1,minWidth:0,display:"block"}}>
+        <span style={{display:"block",fontFamily:t.displayFont,fontSize:13.5,fontWeight:700}}>Watch the sewer camera video</span>
+        <span style={{display:"block",fontSize:10.5,color:t.sub,marginTop:2}}>Full recording of the main line from the camera survey</span>
+        <span style={{display:"block",fontSize:10,color:t.accent,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{displayUrl(url)}</span>
+      </span>
+      <span style={{flexShrink:0,fontSize:10,fontWeight:700,letterSpacing:.6,textTransform:"uppercase",color:t.accent}}>Play ▸</span>
+    </a>
+  );
+}
+
 function AtticGrid({t,d}:{t:ThemeTokens;d:AtticData}){
   return (
     <div style={{marginBottom:16}}>
@@ -1785,7 +1812,7 @@ function FindingCard({t,f,urls,photoH=PHOTO_H,square=false,thermal=false}:any){
   );
 }
 
-function SectionPage({t,s,g,idx,findings,part=1,parts=1,attic,urls,pageBase,reportNo,address,pageNo,biz}:any){
+function SectionPage({t,s,g,idx,findings,part=1,parts=1,attic,sewerUrl,urls,pageBase,reportNo,address,pageNo,biz}:any){
   const list = findings ?? s.findings ?? [];
   const wide = isAttic(s.name);
   const ir = isThermal(s.name);
@@ -1793,6 +1820,7 @@ function SectionPage({t,s,g,idx,findings,part=1,parts=1,attic,urls,pageBase,repo
     <div className="rv-page" style={pageBase}>
       <SectionHeader t={t} s={s} g={g} idx={idx} part={part} parts={parts}/>
       {part===1 && attic && atticRated(attic) && <AtticGrid t={t} d={attic}/>}
+      {part===1 && sewerUrl && <SewerVideoBlock t={t} url={sewerUrl}/>}
       {ir ? (
         <>
           <div style={{display:"grid",gridTemplateColumns:`repeat(${THERMAL_COLS},1fr)`,gap:THERMAL_GAP,alignItems:"start"}}>
