@@ -7,6 +7,8 @@ import UserMenu from "@/components/UserMenu";
 import Intake from "@/components/Intake";
 import { listReports, deleteReport, updateReport } from "@/lib/data";
 import type { Report } from "@/lib/types";
+import { createClient } from "@/lib/supabase-browser";
+import { reportMessage } from "@/lib/report-sms";
 
 function fmtDate(iso: string | null) {
   if (!iso) return "No date set";
@@ -214,6 +216,40 @@ function ShareLink({ report, delivered, onDeliver, onClose }: {
   const [copied, setCopied] = useState("");
   const [done, setDone] = useState(delivered);
 
+  /* Texting it: the number comes from the booking this report was started
+     from, when there is one, and can always be typed or corrected. */
+  const [phone, setPhone] = useState("");
+  const [phoneFrom, setPhoneFrom] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState("");
+  const [sendErr, setSendErr] = useState("");
+  useEffect(() => {
+    createClient().from("appointments").select("phone,client_name").eq("report_id", report.id)
+      .not("phone", "is", null).limit(1)
+      .then(({ data }) => {
+        const p = data?.[0]?.phone;
+        if (p) { setPhone(p); setPhoneFrom("From their booking"); }
+      });
+  }, [report.id]);
+  const phoneOk = phone.replace(/\D/g, "").length >= 10;
+
+  async function sendText() {
+    setSending(true); setSendErr(""); setSent("");
+    try {
+      const res = await fetch("/api/sms/report", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId: report.id, phone }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (j.ok) {
+        setSent(j.to);
+        // Sending it is delivering it.
+        if (!done) { setDone(true); onDeliver(); }
+      } else setSendErr(j.error || "Could not send the text.");
+    } catch (e: any) { setSendErr(e?.message || "Could not send the text."); }
+    setSending(false);
+  }
+
   useEffect(() => {
     (async () => {
       try {
@@ -257,6 +293,17 @@ function ShareLink({ report, delivered, onDeliver, onClose }: {
                   <button onClick={() => copy(share.password, "pw")}>{copied === "pw" ? "Copied" : "Copy"}</button>
                 </div>
               </label>
+              <label className="ux-f"><span>Customer's mobile {phoneFrom && <em className="ux-from">{phoneFrom}</em>}</span>
+                <input inputMode="tel" autoComplete="off" value={phone} placeholder="(313) 555-0142"
+                  onChange={e => { setPhone(e.target.value); setPhoneFrom(""); setSent(""); }} />
+              </label>
+              <div className="ux-preview">
+                <div className="ux-preview-h">Text message</div>
+                <pre>{reportMessage({ client: report.client, address: report.address, link, password: share.password })}</pre>
+              </div>
+              {sent && <div className="ux-sent">✓ Sent to {sent}</div>}
+              {sendErr && <div className="ux-err" style={{ marginTop: 12 }}>{sendErr}</div>}
+
               <div className="ux-hint">
                 Anyone with both can open this report. {share.views || 0} view{(share.views || 0) === 1 ? "" : "s"} so far.
               </div>
@@ -277,9 +324,14 @@ function ShareLink({ report, delivered, onDeliver, onClose }: {
         <div className="ux-sheet-f">
           <button className="ux-chip" onClick={onClose}>Close</button>
           {share && (
-            <button className="ux-cta" onClick={() => copy(`${link}\nPassword: ${share.password}`, "both")}>
-              <span>{copied === "both" ? "Copied" : "Copy link and password"}</span>
-            </button>
+            <>
+              <button className="ux-chip" onClick={() => copy(`${link}\nPassword: ${share.password}`, "both")}>
+                {copied === "both" ? "Copied" : "Copy both"}
+              </button>
+              <button className="ux-cta" disabled={!phoneOk || sending} onClick={sendText}>
+                <span>{sending ? "Sending…" : sent ? "Send again" : "Send to customer"}</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -444,6 +496,15 @@ const UX_CSS = `
 .ux-f input:focus{ outline:none; border-color:var(--ux-blue); box-shadow:0 0 0 3px rgba(69,176,238,.14); }
 .ux-f + .ux-f{ margin-top:15px; }
 .ux-copyrow{ display:flex; gap:9px; }
+.ux-from{ font-style:normal; font-weight:500; font-size:11.5px; color:#3fd39b; margin-left:6px; }
+.ux-preview{ margin-top:15px; border:1px solid var(--ux-line); border-radius:10px; overflow:hidden; }
+.ux-preview-h{ padding:8px 13px; font-size:11px; letter-spacing:1.4px; text-transform:uppercase; color:var(--ux-ink-2);
+  border-bottom:1px solid var(--ux-line); }
+.ux-preview pre{ margin:0; padding:12px 13px; white-space:pre-wrap; word-break:break-word; font:inherit; font-size:13px;
+  line-height:1.5; color:var(--ux-ink); }
+.ux-sent{ margin-top:12px; padding:11px 14px; border-radius:10px; font-size:13.5px; font-weight:600; color:#3fd39b;
+  border:1px solid rgba(63,211,155,.35); background:rgba(63,211,155,.08); }
+.ux-cta:disabled{ opacity:.45; cursor:not-allowed; }
 .ux-copyrow button{ padding:0 15px; border:1px solid var(--ux-line); border-radius:9px; background:var(--ux-panel);
   color:var(--ux-ink-2); font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
 .ux-copyrow button:hover{ border-color:var(--ux-blue); color:var(--ux-blue); }
