@@ -366,6 +366,7 @@ function Schedule() {
           appointmentId={starting.id}
           prefill={{
             client: starting.client_name,
+            phone: starting.phone,
             addr: starting.address,
             date: ymd(new Date(starting.starts_at)),
             time: new Date(starting.starts_at).toTimeString().slice(0, 5),

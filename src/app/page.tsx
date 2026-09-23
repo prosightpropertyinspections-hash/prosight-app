@@ -8,7 +8,6 @@ import Intake from "@/components/Intake";
 import { listReports, deleteReport, updateReport } from "@/lib/data";
 import type { Report } from "@/lib/types";
 import { createClient } from "@/lib/supabase-browser";
-import { reportMessage } from "@/lib/report-sms";
 
 function fmtDate(iso: string | null) {
   if (!iso) return "No date set";
@@ -224,12 +223,21 @@ function ShareLink({ report, delivered, onDeliver, onClose }: {
   const [sent, setSent] = useState("");
   const [sendErr, setSendErr] = useState("");
   useEffect(() => {
-    createClient().from("appointments").select("phone,client_name").eq("report_id", report.id)
-      .not("phone", "is", null).limit(1)
-      .then(({ data }) => {
-        const p = data?.[0]?.phone;
-        if (p) { setPhone(p); setPhoneFrom("From their booking"); }
-      });
+    if (report.client_phone) { setPhone(report.client_phone); setPhoneFrom("Saved on this report"); return; }
+    (async () => {
+      const sb = createClient();
+      // The booking this report was started from…
+      let { data } = await sb.from("appointments").select("phone").eq("report_id", report.id)
+        .neq("phone", "").limit(1);
+      // …or, for older reports, a booking at the same address.
+      const street = (report.address || "").split(",")[0].trim();
+      if (!data?.length && street) {
+        ({ data } = await sb.from("appointments").select("phone").ilike("address", `${street}%`)
+          .neq("phone", "").order("starts_at", { ascending: false }).limit(1));
+      }
+      const p = data?.[0]?.phone;
+      if (p) { setPhone(p); setPhoneFrom("From their booking"); }
+    })();
   }, [report.id]);
   const phoneOk = phone.replace(/\D/g, "").length >= 10;
 
@@ -245,6 +253,10 @@ function ShareLink({ report, delivered, onDeliver, onClose }: {
         setSent(j.to);
         // Sending it is delivering it.
         if (!done) { setDone(true); onDeliver(); }
+        // Remember the number on the report for next time.
+        if (phone.trim() !== (report.client_phone || "")) {
+          updateReport(report.id, { client_phone: phone.trim() } as any).catch(() => {});
+        }
       } else setSendErr(j.error || "Could not send the text.");
     } catch (e: any) { setSendErr(e?.message || "Could not send the text."); }
     setSending(false);
@@ -297,10 +309,6 @@ function ShareLink({ report, delivered, onDeliver, onClose }: {
                 <input inputMode="tel" autoComplete="off" value={phone} placeholder="(313) 555-0142"
                   onChange={e => { setPhone(e.target.value); setPhoneFrom(""); setSent(""); }} />
               </label>
-              <div className="ux-preview">
-                <div className="ux-preview-h">Text message</div>
-                <pre>{reportMessage({ client: report.client, address: report.address, link, password: share.password })}</pre>
-              </div>
               {sent && <div className="ux-sent">✓ Sent to {sent}</div>}
               {sendErr && <div className="ux-err" style={{ marginTop: 12 }}>{sendErr}</div>}
 
@@ -342,6 +350,7 @@ function ShareLink({ report, delivered, onDeliver, onClose }: {
 function EditDetails({ report, onClose, onSaved }: { report: Report; onClose: () => void; onSaved: () => void }) {
   const [address, setAddress] = useState(report.address || "");
   const [client, setClient] = useState(report.client || "");
+  const [clientPhone, setClientPhone] = useState(report.client_phone || "");
   const [inspector, setInspector] = useState((report as any).inspector || "");
   const [date, setDate] = useState(report.inspection_date || "");
   const [saving, setSaving] = useState(false);
@@ -349,7 +358,7 @@ function EditDetails({ report, onClose, onSaved }: { report: Report; onClose: ()
   async function submit() {
     setSaving(true);
     try {
-      await updateReport(report.id, { address, client, inspector, inspection_date: date || null } as any);
+      await updateReport(report.id, { address, client, client_phone: clientPhone.trim() || null, inspector, inspection_date: date || null } as any);
       onSaved();
     } catch (e: any) { showAlert("Could not save: " + (e?.message || e)); setSaving(false); }
   }
@@ -366,7 +375,9 @@ function EditDetails({ report, onClose, onSaved }: { report: Report; onClose: ()
             <input value={address} onChange={e => setAddress(e.target.value)} placeholder="2799 Amazon St, Dearborn, MI 48120" /></label>
           <label className="ux-f"><span>Client name</span>
             <input value={client} onChange={e => setClient(e.target.value)} placeholder="Seth Anderson" /></label>
-          <label className="ux-f"><span>Inspector</span>
+          <label className="ux-f"><span>Client mobile</span>
+            <input inputMode="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="(313) 555-0142" /></label>
+          <label className="ux-f ux-wide"><span>Inspector</span>
             <input value={inspector} onChange={e => setInspector(e.target.value)} placeholder="Islam" /></label>
           <label className="ux-f ux-wide"><span>Inspection date</span>
             <input type="date" value={date || ""} onChange={e => setDate(e.target.value)} /></label>

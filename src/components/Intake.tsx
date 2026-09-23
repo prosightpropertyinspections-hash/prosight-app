@@ -13,6 +13,7 @@ const cap = (s:string)=>s.charAt(0).toUpperCase()+s.slice(1);
    asking for details that were taken over the phone a week ago. */
 export type IntakePrefill = {
   client?: string;
+  phone?: string;
   addr?: string;
   date?: string;      // yyyy-mm-dd
   time?: string;      // HH:mm
@@ -33,6 +34,7 @@ export default function Intake({
   const [d,setD]=useState({
     property:{
       client:prefill?.client||"",
+      phone:prefill?.phone||"",
       addr:prefill?.addr||"",
       date:prefill?.date||new Date().toISOString().slice(0,10),
       time:prefill?.time||"10:00",
@@ -64,7 +66,7 @@ export default function Intake({
     const sk=buildSkeleton(d);
     try{
       const rep=await createReportWithSections({
-        status:"draft", client:d.property.client, address:d.property.addr,
+        status:"draft", client:d.property.client, client_phone:d.property.phone.trim()||null, address:d.property.addr,
         inspection_date:d.property.date, inspection_time:d.property.time,
         property_type:d.property.ptype, inspector:d.property.inspector,
         rooms:d.rooms, systems:d.systems, garage:d.garage, extras:d.extras, theme,
@@ -95,7 +97,8 @@ export default function Intake({
         <div className="ik-b">
           {step===0 && <>
             <H t="Property details" s="These populate the report cover automatically." />
-            <F l="Client name *"><input className="ik-in" value={d.property.client} onChange={e=>set({property:{...d.property,client:e.target.value}})} placeholder="Seth Anderson"/></F>
+            <Row><F l="Client name *"><input className="ik-in" value={d.property.client} onChange={e=>set({property:{...d.property,client:e.target.value}})} placeholder="Seth Anderson"/></F>
+                 <F l="Client mobile"><input className="ik-in" inputMode="tel" value={d.property.phone} onChange={e=>set({property:{...d.property,phone:e.target.value}})} placeholder="(313) 555-0142"/></F></Row>
             <F l="Property address *"><input className="ik-in" value={d.property.addr} onChange={e=>set({property:{...d.property,addr:e.target.value}})} placeholder="2422 Forrister Dr, Adrian, MI 49221"/></F>
             <Row><F l="Date"><input className="ik-in" type="date" value={d.property.date} onChange={e=>set({property:{...d.property,date:e.target.value}})}/></F>
                  <F l="Time"><input className="ik-in" type="time" value={d.property.time} onChange={e=>set({property:{...d.property,time:e.target.value}})}/></F></Row>

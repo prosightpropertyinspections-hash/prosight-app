@@ -17,7 +17,7 @@ export interface Section {
 
 export interface Report {
   id: string; owner: string; status: "draft" | "done";
-  client: string; address: string; inspection_date: string | null;
+  client: string; client_phone?: string | null; address: string; inspection_date: string | null;
   inspection_time: string; property_type: string; inspector: string;
   nachi_id: string; report_no: string;
   rooms: Record<string, number>;
