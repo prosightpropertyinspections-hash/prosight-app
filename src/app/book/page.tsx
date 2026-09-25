@@ -451,8 +451,8 @@ export default function BookPage() {
                       <label className="bk-check">
                         <input type="checkbox" checked={c.consent} onChange={e => setCt({ consent: e.target.checked })} />
                         <span>
-                          Text me a confirmation of this appointment.
-                          <em>One message with the date, time and address. Reply STOP to opt out. Message and data rates may apply.</em>
+                          Text me about this appointment.
+                          <em>A confirmation with the date, time and address, and the inspection agreement to sign. Reply STOP to opt out. Message and data rates may apply.</em>
                         </span>
                       </label>
                     </div>

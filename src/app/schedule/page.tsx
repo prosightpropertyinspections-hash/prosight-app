@@ -167,7 +167,7 @@ function Schedule() {
     load();
 
     if (a.phone && a.sms_consent) {
-      if (await showConfirm({ title: "Request accepted", body: `Text ${a.client_name || "the client"} a confirmation now?`, confirmText: "Send text", cancelText: "Not now" })) {
+      if (await showConfirm({ title: "Request accepted", body: `Text ${a.client_name || "the client"} a confirmation now? It includes the link to sign the inspection agreement.`, confirmText: "Send text", cancelText: "Not now" })) {
         try {
           const res = await fetch("/api/sms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ appointmentId: a.id }) });
           const j = await res.json().catch(() => ({}));
@@ -177,10 +177,22 @@ function Schedule() {
       }
     } else {
       await showAlert("Request accepted", a.phone || a.email
-        ? `They didn't ask for a text, so confirm by ${a.phone ? "calling" : "email"}: ${a.phone || a.email}.`
+        ? `They didn't ask for a text, so confirm by ${a.phone ? "calling" : "email"}: ${a.phone || a.email}. Copy the agreement link from the booking to send them.`
         : "No phone or email on this request.");
     }
   }
+  /* The agreement must be signed before the inspection. Starting without it
+     is allowed, deliberately, after a warning. */
+  async function startChecked(a: Appt) {
+    const { data } = await sb.from("agreements").select("status").eq("appointment_id", a.id).maybeSingle();
+    if (data?.status !== "signed" && !(await showConfirm({
+      title: "Agreement not signed",
+      body: data ? "The client hasn't signed the inspection agreement yet. Start anyway?" : "No agreement has been sent for this inspection. Start anyway?",
+      confirmText: "Start anyway",
+    }))) return;
+    setStarting(a);
+  }
+
   async function decline(a: Appt) {
     if (!(await showConfirm({ title: "Decline this request?", body: "It moves to Canceled. Let the customer know, since they won't hear otherwise.", confirmText: "Decline", danger: true }))) return;
     await sb.from("appointments").update({ status: "canceled" }).eq("id", a.id);
@@ -352,7 +364,7 @@ function Schedule() {
           onEdit={() => setEditing(viewing)}
           onStatus={st => setStatus(viewing, st)}
           onReschedule={() => { setEditing({ ...viewing, status: "rescheduled" }); }}
-          onStart={() => setStarting(viewing)}
+          onStart={() => startChecked(viewing)}
           onRefresh={load}
           onDelete={() => remove(viewing.id)}
           onAccept={() => accept(viewing)}
@@ -627,6 +639,59 @@ function ConfirmText({ a, onSent }: { a: Appt; onSent: () => void }) {
   );
 }
 
+/* The inspection agreement for this appointment: not sent, waiting, or signed,
+   with the signed copy one tap away. */
+function AgreementBox({ a }: { a: Appt }) {
+  const [ag, setAg] = useState<any>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const load = () => createClient().from("agreements").select("token,status,sent_at,viewed_at,signed_at,signer_name")
+    .eq("appointment_id", a.id).maybeSingle().then(({ data }) => setAg(data || null));
+  useEffect(() => { load(); }, [a.id, a.confirmation_sent_at]);
+
+  const url = ag?.token ? `${location.origin}/agree/${ag.token}` : "";
+  const d = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+  async function send(text: boolean) {
+    setBusy(true); setMsg("");
+    try {
+      const res = await fetch("/api/agreements/send", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointmentId: a.id, text }) });
+      const j = await res.json().catch(() => ({}));
+      if (j.ok) {
+        if (!text && j.url) { await navigator.clipboard.writeText(j.url).catch(() => {}); setMsg("Link copied"); }
+        else setMsg(j.texted ? `Texted to ${j.to}` : (j.note || "Ready"));
+        load();
+      } else setMsg(j.error || "Could not send.");
+    } catch (e: any) { setMsg(e?.message || "Could not send."); }
+    setBusy(false);
+  }
+
+  if (ag === undefined) return null;
+  const signed = ag?.status === "signed";
+  return (
+    <div className="sm-sms" data-signed={signed ? "1" : "0"}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="sm-sms-t">{signed ? "✓ Agreement signed" : "Inspection agreement"}</div>
+        <div className="sm-sms-s">
+          {msg ? msg
+            : signed ? `${ag.signer_name} · ${d(ag.signed_at)}`
+            : ag?.viewed_at ? `Opened ${d(ag.viewed_at)}, not signed yet`
+            : ag?.sent_at ? `Sent ${d(ag.sent_at)}, not opened yet`
+            : ag ? "Created, not sent yet"
+            : "Not sent. The confirmation text includes it."}
+        </div>
+      </div>
+      {signed
+        ? <a className="ps-chip" href={url} target="_blank" rel="noopener noreferrer">View</a>
+        : <>
+            <button className="ps-chip" disabled={busy} onClick={() => send(false)}>Copy link</button>
+            <button className="ps-chip" disabled={busy || !a.phone} onClick={() => send(true)}>{ag?.sent_at ? "Resend" : "Send"}</button>
+          </>}
+    </div>
+  );
+}
+
 function ApptSummary({ a, onClose, onEdit, onStatus, onReschedule, onStart, onDelete, onRefresh, onAccept, onDecline }: {
   a: Appt;
   onClose: () => void;
@@ -692,6 +757,7 @@ function ApptSummary({ a, onClose, onEdit, onStatus, onReschedule, onStart, onDe
           <Row l="Duration">{Math.floor((a.duration_min || 0) / 60)} hr{(a.duration_min || 0) % 60 ? ` ${(a.duration_min || 0) % 60} min` : ""}</Row>
           {a.notes && <Row l="Notes"><span style={{ whiteSpace: "pre-wrap" }}>{a.notes}</span></Row>}
           <ConfirmText a={a} onSent={onRefresh} />
+          <AgreementBox a={a} />
         </div>
 
         <div style={{ padding: "0 22px 14px" }}>
@@ -865,6 +931,9 @@ const SCHED_CSS = `
 .sm-act:hover{ border-color:#2a4767; color:var(--ps-ink); }
 .sm-sms{ display:flex; align-items:center; gap:12px; margin-top:15px; padding:13px 15px;
   border:1px solid var(--ps-line-soft); border-radius:11px; background:rgba(69,176,238,.06); }
+.sm-sms[data-signed="1"]{ border-color:rgba(63,211,155,.4); background:rgba(63,211,155,.07); }
+.sm-sms[data-signed="1"] .sm-sms-t{ color:#3fd39b; }
+.sm-sms a.ps-chip{ text-decoration:none; color:inherit; }
 .sm-sms-t{ font-size:12.5px; font-weight:650; color:var(--ps-ink); }
 .sm-sms-s{ font-size:12px; color:var(--ps-ink-2); margin-top:2px; }
 

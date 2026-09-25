@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { ensureAgreement, agreementUrl } from "@/lib/agreement";
 
 /* Sends an appointment confirmation by SMS.
    The body is composed server-side from the stored appointment, so a caller
@@ -21,8 +22,9 @@ function toE164(raw: string): string | null {
 }
 
 function fmt(dt: Date) {
-  const date = dt.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  const time = dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  // The server runs in UTC; the customer needs Michigan time.
+  const date = dt.toLocaleDateString("en-US", { timeZone: "America/Detroit", weekday: "long", month: "long", day: "numeric" });
+  const time = dt.toLocaleTimeString("en-US", { timeZone: "America/Detroit", hour: "numeric", minute: "2-digit" });
   return { date, time };
 }
 
@@ -47,6 +49,17 @@ export async function POST(req: NextRequest) {
 
   const when = fmt(new Date(appt.starts_at));
   const services: string[] = (appt.services && appt.services.length ? appt.services : [appt.service]).filter(Boolean);
+  /* The confirmation carries the agreement link, so one text covers both.
+     If the agreement text hasn't been added yet, the confirmation still goes. */
+  let signLine = "";
+  try {
+    const ag = await ensureAgreement(supabase, appt);
+    if (ag.status !== "signed") {
+      signLine = `Please sign your inspection agreement before the inspection: ${agreementUrl(req.nextUrl.origin, ag.token)}`;
+      await supabase.from("agreements").update({ sent_at: new Date().toISOString() }).eq("id", ag.id);
+    }
+  } catch {}
+
   const lines = [
     `ProSight Property Inspections`,
     ``,
@@ -54,6 +67,8 @@ export async function POST(req: NextRequest) {
     `${when.date} at ${when.time}`,
     appt.address ? `${appt.address}` : "",
     services.length ? `Service: ${services.join(", ")}` : "",
+    signLine ? `` : "",
+    signLine,
     ``,
     `Reply to this message with any questions. Reply STOP to opt out.`,
   ].filter(Boolean);
