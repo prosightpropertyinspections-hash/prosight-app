@@ -74,7 +74,10 @@ export default function AgreePage() {
                 <strong>Signed by {ag.signer_name}</strong>
                 <em>{ag.signed_at ? when(ag.signed_at) : ""}. A copy stays available at this link.</em>
               </div>
-              <button className="noprint" onClick={() => window.print()}>Print or save</button>
+              <button className="noprint" onClick={() => window.print()}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14" /></svg>
+                Download a copy (PDF)
+              </button>
             </div>
           ) : (
             <div className="ag-lead noprint">
@@ -149,7 +152,10 @@ const AG_CSS = `
 .ag-done div{ flex:1; min-width:0; }
 .ag-done strong{ display:block; font-size:16px; }
 .ag-done em{ display:block; font-style:normal; font-size:13px; color:var(--ink2); margin-top:2px; }
-.ag-done button{ flex-shrink:0; padding:10px 16px; border-radius:9px; border:1px solid #b5d9c7; background:#fff; font:inherit; font-size:14px; font-weight:600; cursor:pointer; }
+.ag-done button{ flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:11px 16px;
+  border-radius:9px; border:1px solid #b5d9c7; background:#fff; color:var(--ink); -webkit-text-fill-color:var(--ink);
+  font:inherit; font-size:14.5px; font-weight:600; cursor:pointer; }
+.ag-done button svg{ width:17px; height:17px; fill:none; stroke:var(--ok); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .ag-doc{ padding:28px 30px; }
 .ag-doc-h{ display:flex; align-items:center; gap:14px; }
 .ag-doc-h h2{ margin:0; font-family:"Sora","Inter",sans-serif; font-size:20px; }
@@ -165,13 +171,13 @@ const AG_CSS = `
 .ag-sign{ margin-top:18px; padding:24px 26px; }
 .ag-sign h2{ margin:0 0 14px; font-family:"Sora","Inter",sans-serif; font-size:19px; }
 .ag-f span{ display:block; font-size:14px; font-weight:500; margin-bottom:7px; }
-.ag-f input{ width:100%; padding:12px 14px; border:1px solid #cfd7e0; border-radius:9px; font:inherit; font-size:16px; }
+.ag-f input{ color:var(--ink); background:#fff; width:100%; padding:12px 14px; border:1px solid #cfd7e0; border-radius:9px; font:inherit; font-size:16px; }
 .ag-f input:focus{ outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(33,150,212,.16); }
 .ag-preview{ margin-top:10px; padding:6px 14px 10px; border-bottom:1.5px solid var(--ink); font-family:"Brush Script MT","Segoe Script","Snell Roundhand",cursive; font-size:32px; color:var(--navy); }
 .ag-check{ display:flex; gap:11px; align-items:flex-start; margin-top:18px; font-size:14px; line-height:1.5; color:var(--ink2); cursor:pointer; }
 .ag-check input{ width:19px; height:19px; margin-top:1px; accent-color:var(--blue); flex-shrink:0; }
 .ag-err{ margin-top:14px; padding:11px 14px; border-radius:9px; background:#fdf1ef; border:1px solid #f3c2bd; color:#b3362a; font-size:14px; }
-.ag-go{ width:100%; margin-top:18px; padding:15px; border:0; border-radius:10px; background:var(--blue); color:#fff; font:inherit; font-size:16px; font-weight:650; cursor:pointer; }
+.ag-go{ -webkit-text-fill-color:#fff; width:100%; margin-top:18px; padding:15px; border:0; border-radius:10px; background:var(--blue); color:#fff; font:inherit; font-size:16px; font-weight:650; cursor:pointer; }
 .ag-go:disabled{ background:#a9cfe6; cursor:not-allowed; }
 .ag-fine{ margin:14px 0 0; font-size:13px; color:var(--faint); text-align:center; }
 .ag-fine a{ color:var(--blue); }
