@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { ADDON_PRICES, INSPECTION_TIERS, inspectionTier, quote, money } from "@/lib/pricing";
 
 /* Public booking. Linked from the marketing site, no account needed.
    Six short steps with a visible progress bar: a stranger abandons a wall of
@@ -14,10 +15,10 @@ const SITE = "https://prosightpropertyinspections.com";
 const STEPS = ["Service", "Property", "Add-ons", "Schedule", "Contact", "Confirm"];
 
 type PrimaryKey = "buyer" | "listing" | "testing" | "reinspect";
-const PRIMARY: { k: PrimaryKey; t: string; d: string; svc: string | null; icon: string }[] = [
-  { k: "buyer", t: "Home Buyer", d: "Every major system inspected before you close, with the full report the same day.", svc: "Full home inspection", icon: "house" },
-  { k: "listing", t: "Pre-Listing", d: "Find what a buyer's inspector will, before your home goes on the market.", svc: "Full home inspection", icon: "sign" },
-  { k: "testing", t: "Testing Only", d: "Sewer scope, radon or mold testing without a full home inspection.", svc: null, icon: "flask" },
+const PRIMARY: { k: PrimaryKey; t: string; d: string; svc: string | null; icon: string; price?: string }[] = [
+  { k: "buyer", t: "Home Buyer", d: "Every major system inspected before you close, with the full report the same day.", svc: "Full home inspection", icon: "house", price: "From $420" },
+  { k: "listing", t: "Pre-Listing", d: "Find what a buyer's inspector will, before your home goes on the market.", svc: "Full home inspection", icon: "sign", price: "From $420" },
+  { k: "testing", t: "Testing Only", d: "Sewer scope, radon or mold testing without a full home inspection.", svc: null, icon: "flask", price: "Sewer $150 · Radon $200" },
   { k: "reinspect", t: "Re-Inspection", d: "Verify that repairs were done after an earlier inspection.", svc: "Re-inspection", icon: "check" },
 ];
 
@@ -112,6 +113,8 @@ export default function BookPage() {
 
   const primaryDef = PRIMARY.find(p => p.k === primary);
   const fullInspection = primary === "buyer" || primary === "listing";
+  const sqftNum = Number(prop.sqft) || 0;
+  const tier = inspectionTier(sqftNum);
 
   const address = [prop.street.trim() + (prop.unit.trim() ? `, ${prop.unit.trim()}` : ""), prop.city.trim(), `MI ${prop.zip.trim()}`]
     .filter(Boolean).join(", ");
@@ -121,7 +124,7 @@ export default function BookPage() {
 
   const valid = [
     !!primary,
-    !!prop.street.trim() && !!prop.city.trim() && /^\d{5}$/.test(prop.zip.trim()),
+    !!prop.street.trim() && !!prop.city.trim() && /^\d{5}$/.test(prop.zip.trim()) && (!fullInspection || sqftNum >= 200),
     primary !== "testing" || addons.length > 0,
     !!time,
     !!c.name.trim() && (!!c.phone.trim() || !!c.email.trim()) && phoneOk && emailOk,
@@ -130,7 +133,9 @@ export default function BookPage() {
 
   const hint = [
     "Choose the type of inspection to continue.",
-    "Enter the street, city and a 5-digit ZIP.",
+    fullInspection && !(sqftNum >= 200) && prop.street.trim() && prop.city.trim() && /^\d{5}$/.test(prop.zip.trim())
+      ? "Enter the square footage to see your price."
+      : "Enter the street, city and a 5-digit ZIP.",
     "Choose at least one test.",
     "Pick a time to continue.",
     !phoneOk ? "That phone number looks too short." : !emailOk ? "That email doesn't look right." : "Add your name and a phone number or email.",
@@ -151,6 +156,8 @@ export default function BookPage() {
     ...(primaryDef?.svc ? [primaryDef.svc] : []),
     ...addons,
   ];
+
+  const priced = quote(services, sqftNum);
 
   const propDetails = [
     prop.sqft.trim() && `${prop.sqft.trim()} sq ft`,
@@ -175,7 +182,7 @@ export default function BookPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: c.name, phone: c.phone, email: c.email, address,
-          notes, services, starts_at: `${day}T${time}:00`, sms_consent: c.consent,
+          notes, services, sqft: sqftNum, starts_at: `${day}T${time}:00`, sms_consent: c.consent,
         }),
       });
       const j = await res.json();
@@ -192,7 +199,7 @@ export default function BookPage() {
 
   const aside = [
     { h: "Not sure which?", b: ["Buying a home: Home Buyer.", "Selling: Pre-Listing.", "Just need a sewer, radon or mold test: Testing Only."], f: `Or call ${PHONE} and we'll help you choose.` },
-    { h: "Why we need this", b: ["Plan the right amount of time", "Bring the right equipment", "Route to the property", "Prepare for your inspection"], f: "Square footage and year built are optional. Leave them blank if you're not sure." },
+    { h: "Why we need this", b: ["Plan the right amount of time", "Bring the right equipment", "Route to the property", "Prepare for your inspection"], f: "Square footage sets the inspection price. A close estimate is fine; the listing usually shows it." },
     { h: "Why add testing?", b: ["Sewer lines fail underground, out of sight", "Radon is common in Southeast Michigan", "Mold hides behind finishes"], f: "Testing on the same visit saves a second trip." },
     { h: "About your visit", b: ["Most inspections take about two hours", "You're welcome to attend, and encouraged", "Your digital report arrives the same day"], f: "Times are Michigan time." },
     { h: "Your details", b: ["Used only to confirm this booking", "Never shared or sold", "One text, only if you ask for it"], f: "" },
@@ -281,6 +288,7 @@ export default function BookPage() {
                         <span className="bk-ico"><Icon name={p.icon} /></span>
                         <strong>{p.t}</strong>
                         <em>{p.d}</em>
+                        {p.price && <span className="bk-from">{p.price}</span>}
                       </button>
                     ))}
                   </div>
@@ -307,16 +315,23 @@ export default function BookPage() {
                             onChange={e => setP({ zip: digits(e.target.value).slice(0, 5) })} placeholder="48127" /></label>
                       </div>
                     </div>
-                    <h2 className="bk-h2b">Property details <em>optional</em></h2>
+                    <h2 className="bk-h2b">Property details</h2>
                     <div className="bk-form">
                       <div className="bk-two">
-                        <label><span>Square feet</span>
+                        <label><span>Square feet {fullInspection ? <b>*</b> : null}</span>
                           <input inputMode="numeric" value={prop.sqft} onChange={e => setP({ sqft: digits(e.target.value).slice(0, 6) })}
                             placeholder="1,800" /></label>
                         <label><span>Year built</span>
                           <input inputMode="numeric" maxLength={4} value={prop.year} onChange={e => setP({ year: digits(e.target.value).slice(0, 4) })}
                             placeholder="1956" /></label>
                       </div>
+                      {fullInspection && (
+                        <div className="bk-price" data-on={tier ? "1" : "0"}>
+                          {tier
+                            ? <><span>Inspection price <em>{tier.label}</em></span><strong>{money(tier.price)}</strong></>
+                            : <span>Enter the square footage to see your price. From {money(INSPECTION_TIERS[0].price)}.</span>}
+                        </div>
+                      )}
                       <div>
                         <span className="bk-lbl">Foundation</span>
                         <div className="bk-chips">
@@ -344,6 +359,7 @@ export default function BookPage() {
                         onClick={() => toggleAddon(a.k)}>
                         <span className="bk-box" data-on={addons.includes(a.k) ? "1" : "0"}>✓</span>
                         <div><strong>{a.k}</strong><em>{a.d}</em></div>
+                        <span className="bk-tag bk-tagp">{ADDON_PRICES[a.k] != null ? money(ADDON_PRICES[a.k] as number) : "Quoted"}</span>
                       </button>
                     ))}
                   </div>
@@ -430,6 +446,15 @@ export default function BookPage() {
                       <p><strong>{prettyWhen}</strong></p>
                       <p className="bk-muted">About two hours on site</p>
                     </section>
+                    <section className="bk-bill">
+                      <header><h2>Price</h2></header>
+                      {priced.lines.map(l => (
+                        <div key={l.label} className="bk-line"><span>{l.label}</span><span>{l.price != null ? money(l.price) : "Quoted"}</span></div>
+                      ))}
+                      {fullInspection && <div className="bk-line bk-incl2"><span>Thermal imaging</span><span>Included</span></div>}
+                      <div className="bk-line bk-total"><span>Total{priced.quoted ? " (plus quoted items)" : ""}</span><span>{money(priced.total)}</span></div>
+                      <p className="bk-muted">Nothing is charged now.</p>
+                    </section>
                     <section>
                       <header><h2>Contact</h2><button type="button" onClick={() => go(4)}>Edit</button></header>
                       <p><strong>{c.name}</strong></p>
@@ -467,6 +492,14 @@ export default function BookPage() {
                 </h3>
                 <ul>{aside.b.map(x => <li key={x}>{x}</li>)}</ul>
                 {aside.f && <p>{aside.f}</p>}
+                {step >= 1 && step < 5 && priced.total > 0 && (
+                  <div className="bk-est">
+                    {priced.lines.filter(l => l.price != null).map(l => (
+                      <div key={l.label} className="bk-line"><span>{l.label}</span><span>{money(l.price as number)}</span></div>
+                    ))}
+                    <div className="bk-line bk-total"><span>Estimated total</span><span>{money(priced.total)}</span></div>
+                  </div>
+                )}
               </aside>
             </div>
           </>
@@ -559,6 +592,24 @@ const BK_CSS = `
   color:var(--ink2); cursor:pointer; }
 .bk-chips button[data-on="1"]{ border-color:var(--blue); background:#eef6fc; color:var(--blued); font-weight:600; }
 
+.bk-from{ display:inline-block; margin-top:12px; padding:5px 12px; border-radius:999px; background:#eef6fc; color:var(--blued);
+  font-size:13px; font-weight:700; }
+.bk-price{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-radius:10px;
+  border:1px dashed #cfd7e0; background:#f9fbfc; font-size:14px; color:var(--ink2); }
+.bk-price[data-on="1"]{ border:1px solid #b9d9ee; border-style:solid; background:#eef6fc; color:var(--ink); }
+.bk-price em{ display:block; font-style:normal; font-size:12.5px; color:var(--faint); margin-top:2px; }
+.bk-price strong{ font-family:"Sora","Inter",sans-serif; font-size:24px; color:var(--blued); }
+.bk-tagp{ color:var(--blued) !important; background:#eef6fc !important; font-size:13px !important; }
+.bk-line{ display:flex; justify-content:space-between; gap:12px; font-size:14.5px; color:var(--ink2); padding:5px 0; }
+.bk-line span:last-child{ font-weight:600; color:var(--ink); white-space:nowrap; }
+.bk-incl2 span:last-child{ color:var(--ok); }
+.bk-total{ border-top:1px solid var(--line); margin-top:6px; padding-top:10px; font-weight:700; color:var(--ink); font-size:15.5px; }
+.bk-total span:last-child{ font-size:18px; color:var(--blued); }
+.bk-bill .bk-muted{ margin-top:8px !important; }
+.bk-est{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.bk-est .bk-line{ font-size:13px; padding:3px 0; }
+.bk-est .bk-total{ font-size:14px; }
+.bk-est .bk-total span:last-child{ font-size:16px; }
 .bk-adds{ display:grid; gap:12px; }
 .bk-add{ display:flex; align-items:flex-start; gap:14px; width:100%; text-align:left; padding:18px 20px; background:#fff;
   border:1.5px solid var(--line); border-radius:12px; font:inherit; color:var(--ink); cursor:pointer; }
@@ -659,7 +710,8 @@ const BK_CSS = `
   .bk-types{ grid-template-columns:1fr; gap:10px; }
   .bk-types button{ display:grid; grid-template-columns:48px 1fr; column-gap:14px; text-align:left; padding:16px 44px 16px 16px; align-items:center; }
   .bk-types button:hover{ transform:none; }
-  .bk-ico{ grid-row:1 / 3; width:48px; height:48px; margin:0; align-self:center; }
+  .bk-from{ grid-column:2; justify-self:start; margin-top:8px; font-size:12px; }
+  .bk-ico{ grid-row:1 / 4; width:48px; height:48px; margin:0; align-self:center; }
   .bk-ico svg{ width:24px; height:24px; }
   .bk-types strong{ font-size:17px; margin:0 0 2px; }
   .bk-types em{ font-size:13.5px; }

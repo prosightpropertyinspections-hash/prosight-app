@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { admin } from "@/lib/supabase-admin";
 import { BOOKING_MIN, conflicts } from "@/lib/availability";
+import { quote } from "@/lib/pricing";
 
 /* Public booking endpoint. Anyone on the marketing site can reach it, so it is
    written defensively: it trusts nothing from the browser, writes only the
@@ -93,6 +94,9 @@ export async function POST(req: NextRequest) {
       phone, email, address,
       service: services[0] || "Full home inspection",
       services: services.length ? services : ["Full home inspection"],
+      // Priced here from the same table the page shows, never taken from the browser.
+      fee: quote(services.length ? services : ["Full home inspection"],
+        Math.max(0, Math.min(99999, Math.round(Number(b.sqft) || 0)))).total,
       starts_at: when.toISOString(),
       duration_min: DURATION_MIN,
       status: "requested",
