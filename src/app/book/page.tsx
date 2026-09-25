@@ -12,7 +12,9 @@ const PHONE = "(313) 266-2268";
 const TEL = "tel:+13132662268";
 const SITE = "https://prosightpropertyinspections.com";
 
-const STEPS = ["Service", "Property", "Add-ons", "Schedule", "Contact", "Confirm"];
+const STEPS = ["Service", "Property", "Price", "Add-ons", "Schedule", "Contact", "Confirm"];
+const PRICE_STEP = 2;
+const LAST = STEPS.length - 1;
 
 type PrimaryKey = "buyer" | "listing" | "testing" | "reinspect";
 const PRIMARY: { k: PrimaryKey; t: string; d: string; svc: string | null; icon: string; price?: string }[] = [
@@ -83,7 +85,7 @@ export default function BookPage() {
   useEffect(() => { setTime(""); }, [day]);
 
   useEffect(() => {
-    if (step !== 3) return;
+    if (step !== 4) return;
     let live = true;
     setSlotsLoading(true);
     fetch(`/api/book?day=${day}`)
@@ -125,6 +127,7 @@ export default function BookPage() {
   const valid = [
     !!primary,
     !!prop.street.trim() && !!prop.city.trim() && /^\d{5}$/.test(prop.zip.trim()) && (!fullInspection || sqftNum >= 200),
+    true,
     primary !== "testing" || addons.length > 0,
     !!time,
     !!c.name.trim() && (!!c.phone.trim() || !!c.email.trim()) && phoneOk && emailOk,
@@ -134,13 +137,20 @@ export default function BookPage() {
   const hint = [
     "Choose the type of inspection to continue.",
     fullInspection && !(sqftNum >= 200) && prop.street.trim() && prop.city.trim() && /^\d{5}$/.test(prop.zip.trim())
-      ? "Enter the square footage to see your price."
+      ? "Enter the square footage to continue."
       : "Enter the street, city and a 5-digit ZIP.",
+    "",
     "Choose at least one test.",
     "Pick a time to continue.",
     !phoneOk ? "That phone number looks too short." : !emailOk ? "That email doesn't look right." : "Add your name and a phone number or email.",
     "",
   ];
+
+  /* The price step only applies to a full inspection; testing and
+     re-inspections go straight from the property to the add-ons. */
+  const visible = STEPS.map((_, i) => i).filter(i => i !== PRICE_STEP || fullInspection);
+  const nextOf = (i: number) => visible[visible.indexOf(i) + 1] ?? i;
+  const prevOf = (i: number) => visible[visible.indexOf(i) - 1] ?? i;
 
   function go(n: number) {
     setErr("");
@@ -189,7 +199,7 @@ export default function BookPage() {
       if (j.ok) setDone(true);
       else {
         setErr(j.error || "Something went wrong. Please call us instead.");
-        if (res.status === 409) { setTaken(t => [...t, time]); setTime(""); go(3); }
+        if (res.status === 409) { setTaken(t => [...t, time]); setTime(""); go(4); }
       }
     } catch {
       setErr("Couldn't reach the server. Please check your connection.");
@@ -199,7 +209,8 @@ export default function BookPage() {
 
   const aside = [
     { h: "Not sure which?", b: ["Buying a home: Home Buyer.", "Selling: Pre-Listing.", "Just need a sewer, radon or mold test: Testing Only."], f: `Or call ${PHONE} and we'll help you choose.` },
-    { h: "Why we need this", b: ["Plan the right amount of time", "Bring the right equipment", "Route to the property", "Prepare for your inspection"], f: "Square footage sets the inspection price. A close estimate is fine; the listing usually shows it." },
+    { h: "Why we need this", b: ["Plan the right amount of time", "Bring the right equipment", "Route to the property", "Prepare for your inspection"], f: "Square footage sets your price, shown on the next step. A close estimate is fine; the listing usually shows it." },
+    { h: "How pricing works", b: ["Priced by the home's square footage", "Thermal imaging is always included", "Sewer and radon testing are priced separately"], f: `Questions about your price? Call ${PHONE}.` },
     { h: "Why add testing?", b: ["Sewer lines fail underground, out of sight", "Radon is common in Southeast Michigan", "Mold hides behind finishes"], f: "Testing on the same visit saves a second trip." },
     { h: "About your visit", b: ["Most inspections take about two hours", "You're welcome to attend, and encouraged", "Your digital report arrives the same day"], f: "Times are Michigan time." },
     { h: "Your details", b: ["Used only to confirm this booking", "Never shared or sold", "One text, only if you ask for it"], f: "" },
@@ -224,13 +235,14 @@ export default function BookPage() {
       {!done && (
         <nav className="bk-steps" aria-label="Booking steps">
           <ol>
-            {STEPS.map((s, i) => {
+            {visible.map((i, pos) => {
+              const s = STEPS[i];
               const state = i < step ? "done" : i === step ? "on" : "off";
               const can = i <= reached && i !== step;
               return (
                 <li key={s} data-state={state}>
                   <button type="button" disabled={!can} onClick={() => can && go(i)}>
-                    <i>{state === "done" ? "✓" : i + 1}</i>
+                    <i>{state === "done" ? "✓" : pos + 1}</i>
                     <span>{s}</span>
                   </button>
                 </li>
@@ -238,9 +250,9 @@ export default function BookPage() {
             })}
           </ol>
           <div className="bk-mstep">
-            <span>Step {step + 1} of {STEPS.length}</span>
+            <span>Step {visible.indexOf(step) + 1} of {visible.length}</span>
             <strong>{STEPS[step]}</strong>
-            <div className="bk-mbar"><b style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} /></div>
+            <div className="bk-mbar"><b style={{ width: `${((visible.indexOf(step) + 1) / visible.length) * 100}%` }} /></div>
           </div>
         </nav>
       )}
@@ -264,18 +276,20 @@ export default function BookPage() {
             <h1 className="bk-title">
               {step === 0 && "What type of inspection do you need?"}
               {step === 1 && "Property information"}
-              {step === 2 && (primary === "testing" ? "Which tests do you need?" : "Add testing to the same visit")}
-              {step === 3 && "Pick a date and time"}
-              {step === 4 && "Your contact details"}
-              {step === 5 && "Review and confirm"}
+              {step === 2 && "Your inspection price"}
+              {step === 3 && (primary === "testing" ? "Which tests do you need?" : "Add testing to the same visit")}
+              {step === 4 && "Pick a date and time"}
+              {step === 5 && "Your contact details"}
+              {step === 6 && "Review and confirm"}
             </h1>
             <p className="bk-sub">
               {step === 0 && "Choose one. You can add sewer, radon or mold testing on the next steps."}
               {step === 1 && "Tell us about the property to be inspected."}
-              {step === 2 && (primary === "testing" ? "Choose one or more." : "Optional. Skip this step if you only need the inspection.")}
-              {step === 3 && "Available times are shown. Most inspections take about two hours."}
-              {step === 4 && "So we can confirm your booking."}
-              {step === 5 && "Check everything below. Nothing is charged now."}
+              {step === 2 && "Based on the square footage you entered. You can add sewer or radon testing next."}
+              {step === 3 && (primary === "testing" ? "Choose one or more." : "Optional. Skip this step if you only need the inspection.")}
+              {step === 4 && "Available times are shown. Most inspections take about two hours."}
+              {step === 5 && "So we can confirm your booking."}
+              {step === 6 && "Check everything below. Nothing is charged now."}
             </p>
 
             <div className="bk-grid">
@@ -325,13 +339,6 @@ export default function BookPage() {
                           <input inputMode="numeric" maxLength={4} value={prop.year} onChange={e => setP({ year: digits(e.target.value).slice(0, 4) })}
                             placeholder="1956" /></label>
                       </div>
-                      {fullInspection && (
-                        <div className="bk-price" data-on={tier ? "1" : "0"}>
-                          {tier
-                            ? <><span>Inspection price <em>{tier.label}</em></span><strong>{money(tier.price)}</strong></>
-                            : <span>Enter the square footage to see your price. From {money(INSPECTION_TIERS[0].price)}.</span>}
-                        </div>
-                      )}
                       <div>
                         <span className="bk-lbl">Foundation</span>
                         <div className="bk-chips">
@@ -345,7 +352,33 @@ export default function BookPage() {
                   </section>
                 )}
 
-                {step === 2 && (
+                {step === 2 && tier && (
+                  <section className="bk-card">
+                    <h2>{primary === "listing" ? "Pre-listing (seller) inspection" : "Home buyer inspection"}</h2>
+                    <div className="bk-quote">
+                      <div className="bk-quote-top">
+                        <span>Your price</span>
+                        <strong>{money(tier.price)}</strong>
+                        <em>{Number(prop.sqft).toLocaleString("en-US")} sq ft · {tier.label}</em>
+                      </div>
+                      <ul className="bk-incl-list">
+                        <li>Every major system: roof, structure, electrical, plumbing, heating and cooling</li>
+                        <li>Thermal imaging included</li>
+                        <li>Digital report with photos, the same day</li>
+                        <li>About two hours on site, and you're welcome to attend</li>
+                      </ul>
+                    </div>
+                    <div className="bk-tiers">
+                      {INSPECTION_TIERS.map(tr => (
+                        <div key={tr.label} data-on={tr === tier ? "1" : "0"}>
+                          <span>{tr.label}</span><strong>{money(tr.price)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {step === 3 && (
                   <div className="bk-adds">
                     {fullInspection && (
                       <div className="bk-add bk-incl">
@@ -365,7 +398,7 @@ export default function BookPage() {
                   </div>
                 )}
 
-                {step === 3 && (
+                {step === 4 && (
                   <section className="bk-card">
                     <h2>{new Date(`${day}T12:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
                     <div className="bk-days">
@@ -397,7 +430,7 @@ export default function BookPage() {
                   </section>
                 )}
 
-                {step === 4 && (
+                {step === 5 && (
                   <section className="bk-card">
                     <h2>Contact information</h2>
                     <div className="bk-form">
@@ -426,14 +459,14 @@ export default function BookPage() {
                   </section>
                 )}
 
-                {step === 5 && (
+                {step === 6 && (
                   <div className="bk-review">
                     <section>
                       <header><h2>Service</h2><button type="button" onClick={() => go(0)}>Edit</button></header>
                       <p><strong>{primaryDef?.t}</strong>{fullInspection ? " · thermal imaging included" : ""}</p>
                       {addons.length > 0 && <p>{addons.join(", ")}</p>}
                       {addons.length === 0 && primary !== "testing" && primary !== "reinspect" && (
-                        <p className="bk-muted">No add-on testing. <button type="button" className="bk-link" onClick={() => go(2)}>Add some</button></p>
+                        <p className="bk-muted">No add-on testing. <button type="button" className="bk-link" onClick={() => go(3)}>Add some</button></p>
                       )}
                     </section>
                     <section>
@@ -442,7 +475,7 @@ export default function BookPage() {
                       {propDetails && <p>{propDetails}</p>}
                     </section>
                     <section>
-                      <header><h2>Appointment</h2><button type="button" onClick={() => go(3)}>Edit</button></header>
+                      <header><h2>Appointment</h2><button type="button" onClick={() => go(4)}>Edit</button></header>
                       <p><strong>{prettyWhen}</strong></p>
                       <p className="bk-muted">About two hours on site</p>
                     </section>
@@ -456,7 +489,7 @@ export default function BookPage() {
                       <p className="bk-muted">Nothing is charged now.</p>
                     </section>
                     <section>
-                      <header><h2>Contact</h2><button type="button" onClick={() => go(4)}>Edit</button></header>
+                      <header><h2>Contact</h2><button type="button" onClick={() => go(5)}>Edit</button></header>
                       <p><strong>{c.name}</strong></p>
                       {c.phone && <p>{c.phone}</p>}
                       {c.email && <p>{c.email}</p>}
@@ -470,13 +503,13 @@ export default function BookPage() {
 
                 <div className="bk-nav">
                   {step > 0
-                    ? <button type="button" className="bk-ghost" onClick={() => go(step - 1)}>← Back</button>
+                    ? <button type="button" className="bk-ghost" onClick={() => go(prevOf(step))}>← Back</button>
                     : <a className="bk-ghost" href={SITE}>← Website</a>}
                   <div className="bk-navr">
                     {!valid[step] && <span className="bk-why">{hint[step]}</span>}
-                    {step < 5
-                      ? <button type="button" className="bk-go" disabled={!valid[step]} onClick={() => go(step + 1)}>
-                          {step === 2 && primary !== "testing" && addons.length === 0 ? "Skip" : "Continue"} →
+                    {step < LAST
+                      ? <button type="button" className="bk-go" disabled={!valid[step]} onClick={() => go(nextOf(step))}>
+                          {step === 3 && primary !== "testing" && addons.length === 0 ? "Skip" : "Continue"} →
                         </button>
                       : <button type="button" className="bk-go" disabled={busy} onClick={submit}>
                           {busy ? "Sending…" : "Request this time"}
@@ -492,7 +525,7 @@ export default function BookPage() {
                 </h3>
                 <ul>{aside.b.map(x => <li key={x}>{x}</li>)}</ul>
                 {aside.f && <p>{aside.f}</p>}
-                {step >= 1 && step < 5 && priced.total > 0 && (
+                {step > PRICE_STEP && step < LAST && priced.total > 0 && (
                   <div className="bk-est">
                     {priced.lines.filter(l => l.price != null).map(l => (
                       <div key={l.label} className="bk-line"><span>{l.label}</span><span>{money(l.price as number)}</span></div>
@@ -592,6 +625,22 @@ const BK_CSS = `
   color:var(--ink2); cursor:pointer; }
 .bk-chips button[data-on="1"]{ border-color:var(--blue); background:#eef6fc; color:var(--blued); font-weight:600; }
 
+.bk-quote{ margin:20px; display:grid; grid-template-columns:auto 1fr; gap:22px; align-items:center; }
+.bk-quote-top{ padding:20px 26px; border-radius:12px; background:#eef6fc; border:1px solid #cfe5f3; text-align:center; min-width:190px; }
+.bk-quote-top span{ display:block; font-size:12px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--blued); }
+.bk-quote-top strong{ display:block; font-family:"Sora","Inter",sans-serif; font-size:44px; font-weight:700; line-height:1.15; color:var(--navy); margin:4px 0; }
+.bk-quote-top em{ display:block; font-style:normal; font-size:12.5px; color:var(--ink2); }
+.bk-incl-list{ list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+.bk-incl-list li{ position:relative; padding-left:28px; font-size:14.5px; color:var(--ink2); line-height:1.45; }
+.bk-incl-list li::before{ content:"✓"; position:absolute; left:0; top:0; width:19px; height:19px; border-radius:50%; background:#e3f3ec;
+  color:var(--ok); font-size:11px; font-weight:800; display:grid; place-items:center; }
+.bk-tiers{ margin:0 20px 20px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.bk-tiers div{ display:flex; justify-content:space-between; padding:10px 14px; font-size:14px; color:var(--faint); }
+.bk-tiers div + div{ border-top:1px solid var(--line); }
+.bk-tiers div[data-on="1"]{ background:#f5fafe; color:var(--ink); font-weight:600; box-shadow:inset 3px 0 0 var(--blue); }
+.bk-tiers strong{ font-weight:600; }
+/* Browser autofill paints fields gray; keep them white. */
+.bk-form input:-webkit-autofill{ -webkit-box-shadow:0 0 0 40px #fff inset; -webkit-text-fill-color:var(--ink); }
 .bk-from{ display:inline-block; margin-top:12px; padding:5px 12px; border-radius:999px; background:#eef6fc; color:var(--blued);
   font-size:13px; font-weight:700; }
 .bk-price{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-radius:10px;
@@ -710,6 +759,8 @@ const BK_CSS = `
   .bk-types{ grid-template-columns:1fr; gap:10px; }
   .bk-types button{ display:grid; grid-template-columns:48px 1fr; column-gap:14px; text-align:left; padding:16px 44px 16px 16px; align-items:center; }
   .bk-types button:hover{ transform:none; }
+  .bk-quote{ grid-template-columns:1fr; margin:16px; gap:16px; }
+  .bk-tiers{ margin:0 16px 16px; }
   .bk-from{ grid-column:2; justify-self:start; margin-top:8px; font-size:12px; }
   .bk-ico{ grid-row:1 / 4; width:48px; height:48px; margin:0; align-self:center; }
   .bk-ico svg{ width:24px; height:24px; }
