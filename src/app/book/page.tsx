@@ -18,8 +18,8 @@ const LAST = STEPS.length - 1;
 
 type PrimaryKey = "buyer" | "listing" | "testing" | "reinspect";
 const PRIMARY: { k: PrimaryKey; t: string; d: string; svc: string | null; icon: string; price?: string }[] = [
-  { k: "buyer", t: "Home Buyer", d: "Every major system inspected before you close, with the full report the same day.", svc: "Full home inspection", icon: "house", price: "From $420" },
-  { k: "listing", t: "Pre-Listing", d: "Find what a buyer's inspector will, before your home goes on the market.", svc: "Full home inspection", icon: "sign", price: "From $420" },
+  { k: "buyer", t: "Home Buyer", d: "Every major system inspected before you close, with the full report the same day.", svc: "Full home inspection", icon: "house", price: `From ${money(INSPECTION_TIERS[0].price)}` },
+  { k: "listing", t: "Pre-Listing", d: "Find what a buyer's inspector will, before your home goes on the market.", svc: "Full home inspection", icon: "sign", price: `From ${money(INSPECTION_TIERS[0].price)}` },
   { k: "testing", t: "Testing Only", d: "Sewer scope, radon or mold testing without a full home inspection.", svc: null, icon: "flask", price: "Sewer $150 · Radon $200" },
   { k: "reinspect", t: "Re-Inspection", d: "Verify that repairs were done after an earlier inspection.", svc: "Re-inspection", icon: "check" },
 ];

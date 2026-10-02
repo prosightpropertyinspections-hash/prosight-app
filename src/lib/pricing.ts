@@ -2,7 +2,8 @@
    the server to record the fee, so the customer sees exactly what is saved. */
 
 export const INSPECTION_TIERS = [
-  { max: 1250, price: 420, label: "Up to 1,250 sq ft" },
+  { max: 600, price: 320, label: "Up to 600 sq ft" },
+  { max: 1250, price: 420, label: "601 to 1,250 sq ft" },
   { max: 1750, price: 480, label: "1,251 to 1,750 sq ft" },
   { max: 2500, price: 520, label: "1,751 to 2,500 sq ft" },
   { max: Infinity, price: 560, label: "Over 2,500 sq ft" },
