@@ -63,6 +63,37 @@ export default function BookPage() {
   const [addons, setAddons] = useState<string[]>([]);
   const [prop, setProp] = useState({ street: "", unit: "", city: "", zip: "", sqft: "", year: "", foundation: "" });
   const setP = (v: Partial<typeof prop>) => setProp(o => ({ ...o, ...v }));
+
+  /* Address suggestions as they type the street; picking one fills the
+     street, city and ZIP. One Google session per address keeps it cheap. */
+  const [sugs, setSugs] = useState<{ id: string; main: string; sub: string }[]>([]);
+  const [sugOpen, setSugOpen] = useState(false);
+  const [sugIdx, setSugIdx] = useState(-1);
+  const [addrNote, setAddrNote] = useState("");
+  const [session, setSession] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
+  const [typed, setTyped] = useState("");
+  useEffect(() => {
+    const q = typed.trim();
+    if (q.length < 3) { setSugs([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/places?q=${encodeURIComponent(q)}&s=${session}`)
+        .then(r => r.json()).then(j => { setSugs(j.suggestions || []); setSugIdx(-1); })
+        .catch(() => setSugs([]));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [typed, session]);
+
+  async function pickAddress(sg: { id: string; main: string }) {
+    setSugOpen(false); setSugs([]); setTyped("");
+    setP({ street: sg.main });
+    try {
+      const j = await (await fetch(`/api/places?id=${encodeURIComponent(sg.id)}&s=${session}`)).json();
+      if (j.state && j.state !== "MI") setAddrNote("We inspect in Michigan only. Please check the address.");
+      else setAddrNote("");
+      setP({ street: j.street || sg.main, city: j.city || "", zip: (j.zip || "").slice(0, 5) });
+    } catch {}
+    setSession(Math.random().toString(36).slice(2) + Date.now().toString(36));
+  }
   const [c, setC] = useState({ name: "", phone: "", email: "", notes: "", consent: false });
   const setCt = (v: Partial<typeof c>) => setC(o => ({ ...o, ...v }));
 
@@ -312,9 +343,33 @@ export default function BookPage() {
                   <section className="bk-card">
                     <h2>Property address</h2>
                     <div className="bk-form">
-                      <label><span>Street address <b>*</b></span>
-                        <input autoComplete="address-line1" value={prop.street} onChange={e => setP({ street: e.target.value })}
-                          placeholder="2422 Forrister Dr" /></label>
+                      <div className="bk-ac">
+                        <label><span>Street address <b>*</b></span>
+                          <input autoComplete="off" name="bk-street" value={prop.street} placeholder="Start typing the address"
+                            role="combobox" aria-expanded={sugOpen && sugs.length > 0} aria-autocomplete="list"
+                            onChange={e => { setP({ street: e.target.value }); setTyped(e.target.value); setSugOpen(true); }}
+                            onFocus={() => setSugOpen(true)}
+                            onBlur={() => setTimeout(() => setSugOpen(false), 150)}
+                            onKeyDown={e => {
+                              if (!sugOpen || !sugs.length) return;
+                              if (e.key === "ArrowDown") { e.preventDefault(); setSugIdx(i => Math.min(i + 1, sugs.length - 1)); }
+                              else if (e.key === "ArrowUp") { e.preventDefault(); setSugIdx(i => Math.max(i - 1, 0)); }
+                              else if (e.key === "Enter" && sugIdx >= 0) { e.preventDefault(); pickAddress(sugs[sugIdx]); }
+                              else if (e.key === "Escape") setSugOpen(false);
+                            }} /></label>
+                        {sugOpen && sugs.length > 0 && (
+                          <ul className="bk-sugs" role="listbox">
+                            {sugs.map((sg, i) => (
+                              <li key={sg.id} role="option" aria-selected={i === sugIdx} data-on={i === sugIdx ? "1" : "0"}
+                                onMouseDown={e => { e.preventDefault(); pickAddress(sg); }}>
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
+                                <span><strong>{sg.main}</strong><em>{sg.sub}</em></span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {addrNote && <p className="bk-note" style={{ marginTop: 6, color: "#b3362a" }}>{addrNote}</p>}
+                      </div>
                       <label><span>Address line 2</span>
                         <input autoComplete="address-line2" value={prop.unit} onChange={e => setP({ unit: e.target.value })}
                           placeholder="Apt, suite, unit (optional)" /></label>
@@ -641,6 +696,15 @@ const BK_CSS = `
 .bk-tiers strong{ font-weight:600; }
 /* Browser autofill paints fields gray; keep them white. */
 .bk-form input:-webkit-autofill{ -webkit-box-shadow:0 0 0 40px #fff inset; -webkit-text-fill-color:var(--ink); }
+.bk-ac{ position:relative; }
+.bk-sugs{ position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:20; list-style:none; margin:0; padding:6px;
+  background:#fff; border:1px solid #cfd7e0; border-radius:10px; box-shadow:0 18px 40px -18px rgba(13,31,51,.45); }
+.bk-sugs li{ display:flex; align-items:center; gap:11px; padding:10px 11px; border-radius:8px; cursor:pointer; }
+.bk-sugs li:hover, .bk-sugs li[data-on="1"]{ background:#eef6fc; }
+.bk-sugs svg{ flex-shrink:0; width:18px; height:18px; fill:none; stroke:var(--faint); stroke-width:1.7; }
+.bk-sugs span{ min-width:0; }
+.bk-sugs strong{ display:block; font-size:14.5px; font-weight:600; color:var(--ink); }
+.bk-sugs em{ display:block; font-style:normal; font-size:12.5px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .bk-from{ display:inline-block; margin-top:12px; padding:5px 12px; border-radius:999px; background:#eef6fc; color:var(--blued);
   font-size:13px; font-weight:700; }
 .bk-price{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-radius:10px;
