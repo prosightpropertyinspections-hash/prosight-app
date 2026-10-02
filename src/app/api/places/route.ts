@@ -14,7 +14,7 @@ const KEY = process.env.GOOGLE_MAPS_API_KEY;
 const AREA = { rectangle: { low: { latitude: 41.95, longitude: -84.25 }, high: { latitude: 42.95, longitude: -82.4 } } };
 
 export async function GET(req: NextRequest) {
-  if (!KEY) return NextResponse.json({ suggestions: [] });
+  if (!KEY) return NextResponse.json({ suggestions: [], error: "GOOGLE_MAPS_API_KEY is not set on the server." });
   const q = (req.nextUrl.searchParams.get("q") || "").trim();
   const id = req.nextUrl.searchParams.get("id") || "";
   const s = (req.nextUrl.searchParams.get("s") || "").slice(0, 64);
@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
       }),
     });
     const j = await r.json();
+    if (!r.ok) return NextResponse.json({ suggestions: [], error: j?.error?.message || `Google returned ${r.status}` });
     const suggestions = (j.suggestions || [])
       .map((x: any) => x.placePrediction)
       .filter(Boolean)
