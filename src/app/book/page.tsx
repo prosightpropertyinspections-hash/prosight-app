@@ -288,7 +288,7 @@ export default function BookPage() {
         </nav>
       )}
 
-      <main className="bk-wrap">
+      <main className={`bk-wrap${step < LAST && valid[step] ? " bk-ready" : ""}`}>
         {done ? (
           <div className="bk-done">
             <div className="bk-tick">✓</div>
@@ -812,12 +812,13 @@ const BK_CSS = `
   .bk-grid{ grid-template-columns:minmax(0,1fr); gap:20px; }
   .bk-aside{ position:static; }
 }
+@keyframes bk-up{ from{ transform:translateY(100%); } to{ transform:none; } }
 @media (max-width:620px){
   .bk-bar{ padding:10px 16px; padding-top:calc(10px + env(safe-area-inset-top,0px)); }
   .bk-home img{ height:46px; }
   .bk-call .bk-need{ display:none; }
   .bk-call{ font-size:14px; }
-  .bk-wrap{ padding:24px 16px 150px; }
+  .bk-wrap{ padding:24px 16px 48px; }
   .bk-title{ font-size:25px; }
   .bk-sub{ font-size:14.5px; margin-bottom:20px; }
   .bk-types{ grid-template-columns:1fr; gap:10px; }
@@ -839,14 +840,18 @@ const BK_CSS = `
   .bk-slots{ grid-template-columns:repeat(3,minmax(0,1fr)); }
   .bk-days{ flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
   .bk-days::-webkit-scrollbar{ display:none; }
-  /* Continue stays pinned to the bottom of the screen so nobody has to scroll for it. */
-  .bk-nav{ position:fixed; left:0; right:0; bottom:0; z-index:40; margin:0; flex-wrap:nowrap; align-items:flex-end; gap:10px;
-    background:#fff; border-top:1px solid var(--line); box-shadow:0 -8px 24px -12px rgba(13,31,51,.25);
-    padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px)); }
-  .bk-navr{ flex:1; min-width:0; width:auto; flex-direction:column-reverse; align-items:stretch; gap:6px; margin:0; }
-  .bk-why{ text-align:center; font-size:12.5px; }
+  .bk-nav{ flex-wrap:wrap; }
+  .bk-navr{ width:100%; flex-direction:column-reverse; align-items:stretch; gap:8px; margin:0; order:-1; }
+  .bk-why{ text-align:center; }
   .bk-go{ width:100%; text-align:center; padding:15px; }
-  .bk-ghost{ width:auto; flex-shrink:0; text-align:center; padding:13px 14px; }
+  .bk-ghost{ width:100%; text-align:center; }
+  /* Once a choice is made, Continue slides up pinned to the bottom of the screen. */
+  .bk-ready{ padding-bottom:130px; }
+  .bk-ready .bk-nav{ position:fixed; left:0; right:0; bottom:0; z-index:40; margin:0; flex-wrap:nowrap; align-items:flex-end; gap:10px;
+    background:#fff; border-top:1px solid var(--line); box-shadow:0 -8px 24px -12px rgba(13,31,51,.25);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px)); animation:bk-up .22s ease-out; }
+  .bk-ready .bk-navr{ flex:1; min-width:0; width:auto; order:0; }
+  .bk-ready .bk-ghost{ width:auto; flex-shrink:0; padding:13px 14px; }
   .bk-foot{ font-size:11.5px; }
 }
 @media (pointer:coarse){
