@@ -135,14 +135,35 @@ function Schedule() {
       starts_at: a.starts_at, duration_min: Number(a.duration_min || BOOKING_MIN),
       status: a.status || "scheduled", notes: a.notes || "",
     };
+    const moved = !!a.id && !!viewing && viewing.id === a.id &&
+      (a.status === "rescheduled" || new Date(viewing.starts_at).getTime() !== new Date(a.starts_at as string).getTime());
     if (a.id) await sb.from("appointments").update(row).eq("id", a.id);
     else await sb.from("appointments").insert({ ...row, owner: user!.id });
     setEditing(null); setViewing(null); load();
+    if (moved && a.status !== "canceled" && a.status !== "completed") await offerText(a as Appt, "rescheduled");
+  }
+  /* Offers to text the client about a status change. Asking first means a
+     mis-tap on Canceled never sends a message the client can't un-read. */
+  async function offerText(a: Appt, kind: "canceled" | "rescheduled" | "completed") {
+    if (!a.phone || a.sms_consent === false) return;
+    const name = a.client_name || "the client";
+    const copy = {
+      canceled:    { title: "Text the cancellation?", body: `Let ${name} know by text that this inspection is canceled.` },
+      rescheduled: { title: "Text the new time?",     body: `Send ${name} a text with the new date and time.` },
+      completed:   { title: "Text a thank-you and review link?", body: `Send ${name} a thank-you with your Google review link.` },
+    }[kind];
+    if (!(await showConfirm({ title: copy.title, body: copy.body, confirmText: "Send text", cancelText: "Not now" }))) return;
+    try {
+      const res = await fetch("/api/sms/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ appointmentId: a.id, kind }) });
+      const j = await res.json().catch(() => ({}));
+      if (!j.ok) await showAlert("Text not sent", j.error || "Please try again or message them yourself.");
+    } catch { await showAlert("Text not sent", "Please try again or message them yourself."); }
   }
   async function setStatus(a: Appt, status: Appt["status"]) {
     await sb.from("appointments").update({ status }).eq("id", a.id);
     setViewing({ ...a, status });
     load();
+    if (status === "canceled" || status === "completed") await offerText(a, status);
   }
   /* A website request becomes real work only when accepted. Accepting checks
      it against anything booked since, then offers the confirmation text if
@@ -198,6 +219,7 @@ function Schedule() {
     await sb.from("appointments").update({ status: "canceled" }).eq("id", a.id);
     setViewing(null);
     load();
+    await offerText(a, "canceled");
   }
 
   async function remove(id: string) {
