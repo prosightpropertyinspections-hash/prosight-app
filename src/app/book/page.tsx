@@ -56,6 +56,8 @@ export default function BookPage() {
   const [step, setStep] = useState(0);
   const [reached, setReached] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [tried, setTried] = useState(false);   // Continue was pressed while something is missing
+  const [shake, setShake] = useState(0);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(false);
 
@@ -183,7 +185,21 @@ export default function BookPage() {
   const nextOf = (i: number) => visible[visible.indexOf(i) + 1] ?? i;
   const prevOf = (i: number) => visible[visible.indexOf(i) - 1] ?? i;
 
+  /* Continue always looks available. Pressing it with something missing shakes the
+     button, shows what is needed and outlines the empty field. */
+  const bad = (cond: boolean) => (tried && cond ? "1" : undefined);
+  function tryNext() {
+    if (valid[step]) { go(nextOf(step)); return; }
+    setTried(true);
+    setShake(n => n + 1);
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>('.bk-form [data-bad="1"]');
+      if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); el.focus({ preventScroll: true }); }
+    });
+  }
+
   function go(n: number) {
+    setTried(false);
     setErr("");
     setStep(n);
     setReached(r => Math.max(r, n));
@@ -345,7 +361,7 @@ export default function BookPage() {
                     <div className="bk-form">
                       <div className="bk-ac">
                         <label><span>Street address <b>*</b></span>
-                          <input autoComplete="off" name="bk-street" value={prop.street} placeholder="Start typing the address"
+                          <input autoComplete="off" name="bk-street" data-bad={bad(!prop.street.trim())} value={prop.street} placeholder="Start typing the address"
                             role="combobox" aria-expanded={sugOpen && sugs.length > 0} aria-autocomplete="list"
                             onChange={e => { setP({ street: e.target.value }); setTyped(e.target.value); setSugOpen(true); }}
                             onFocus={() => setSugOpen(true)}
@@ -375,12 +391,12 @@ export default function BookPage() {
                           placeholder="Apt, suite, unit (optional)" /></label>
                       <div className="bk-three">
                         <label><span>City <b>*</b></span>
-                          <input autoComplete="address-level2" value={prop.city} onChange={e => setP({ city: e.target.value })}
+                          <input autoComplete="address-level2" data-bad={bad(!prop.city.trim())} value={prop.city} onChange={e => setP({ city: e.target.value })}
                             placeholder="Dearborn" /></label>
                         <label><span>State</span>
                           <input value="Michigan" readOnly tabIndex={-1} className="bk-ro" /></label>
                         <label><span>ZIP <b>*</b></span>
-                          <input autoComplete="postal-code" inputMode="numeric" maxLength={5} value={prop.zip}
+                          <input autoComplete="postal-code" inputMode="numeric" maxLength={5} data-bad={bad(!/^\d{5}$/.test(prop.zip.trim()))} value={prop.zip}
                             onChange={e => setP({ zip: digits(e.target.value).slice(0, 5) })} placeholder="48127" /></label>
                       </div>
                     </div>
@@ -388,7 +404,7 @@ export default function BookPage() {
                     <div className="bk-form">
                       <div className="bk-two">
                         <label><span>Square feet {fullInspection ? <b>*</b> : null}</span>
-                          <input inputMode="numeric" value={prop.sqft} onChange={e => setP({ sqft: digits(e.target.value).slice(0, 6) })}
+                          <input inputMode="numeric" data-bad={bad(fullInspection && !(sqftNum >= 200))} value={prop.sqft} onChange={e => setP({ sqft: digits(e.target.value).slice(0, 6) })}
                             placeholder="1,800" /></label>
                         <label><span>Year built</span>
                           <input inputMode="numeric" maxLength={4} value={prop.year} onChange={e => setP({ year: digits(e.target.value).slice(0, 4) })}
@@ -490,13 +506,13 @@ export default function BookPage() {
                     <h2>Contact information</h2>
                     <div className="bk-form">
                       <label><span>Full name <b>*</b></span>
-                        <input autoComplete="name" value={c.name} onChange={e => setCt({ name: e.target.value })} placeholder="Seth Anderson" /></label>
+                        <input autoComplete="name" data-bad={bad(!c.name.trim())} value={c.name} onChange={e => setCt({ name: e.target.value })} placeholder="Seth Anderson" /></label>
                       <div className="bk-two">
                         <label><span>Mobile phone</span>
-                          <input autoComplete="tel" inputMode="tel" value={c.phone} onChange={e => setCt({ phone: e.target.value })}
+                          <input autoComplete="tel" inputMode="tel" data-bad={bad(!phoneOk || (!c.phone.trim() && !c.email.trim()))} value={c.phone} onChange={e => setCt({ phone: e.target.value })}
                             placeholder="(313) 555-0142" /></label>
                         <label><span>Email</span>
-                          <input autoComplete="email" inputMode="email" value={c.email} onChange={e => setCt({ email: e.target.value })}
+                          <input autoComplete="email" inputMode="email" data-bad={bad(!emailOk || (!c.phone.trim() && !c.email.trim()))} value={c.email} onChange={e => setCt({ email: e.target.value })}
                             placeholder="you@email.com" /></label>
                       </div>
                       <p className="bk-note">A phone number or an email is required.</p>
@@ -561,9 +577,9 @@ export default function BookPage() {
                     ? <button type="button" className="bk-ghost" onClick={() => go(prevOf(step))}>← Back</button>
                     : <a className="bk-ghost" href={SITE}>← Website</a>}
                   <div className="bk-navr">
-                    {!valid[step] && <span className="bk-why">{hint[step]}</span>}
+                    {tried && !valid[step] && <span className="bk-why" role="alert">{hint[step].replace(" to continue", "")}</span>}
                     {step < LAST
-                      ? <button type="button" className="bk-go" disabled={!valid[step]} onClick={() => go(nextOf(step))}>
+                      ? <button key={shake} type="button" className={`bk-go${tried && !valid[step] ? " bk-shake" : ""}`} onClick={tryNext}>
                           {step === 3 && primary !== "testing" && addons.length === 0 ? "Skip" : "Continue"} →
                         </button>
                       : <button type="button" className="bk-go" disabled={busy} onClick={submit}>
@@ -668,6 +684,11 @@ const BK_CSS = `
 .bk-form input, .bk-form textarea{ width:100%; padding:11px 13px; border:1px solid #cfd7e0; border-radius:8px; background:#fff;
   color:var(--ink); font:inherit; font-size:15px; transition:border-color .15s, box-shadow .15s; }
 .bk-form input::placeholder, .bk-form textarea::placeholder{ color:#a3aebb; }
+.bk-form [data-bad="1"]{ border-color:#d33; background:#fff8f8; box-shadow:0 0 0 3px rgba(221,51,51,.14); }
+.bk-why{ color:#c62828; font-weight:600; }
+.bk-shake{ animation:bk-shake .45s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes bk-shake{ 10%,90%{ transform:translateX(-2px); } 20%,80%{ transform:translateX(4px); } 30%,50%,70%{ transform:translateX(-7px); } 40%,60%{ transform:translateX(7px); } }
+@media (prefers-reduced-motion:reduce){ .bk-shake{ animation:none; } }
 .bk-form input:focus, .bk-form textarea:focus{ outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(33,150,212,.16); }
 .bk-form .bk-ro{ background:#f3f5f8; color:var(--ink2); }
 .bk-form textarea{ resize:vertical; }
@@ -774,7 +795,7 @@ const BK_CSS = `
 
 .bk-nav{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:22px; }
 .bk-navr{ display:flex; align-items:center; gap:14px; margin-left:auto; }
-.bk-why{ font-size:13px; color:var(--faint); text-align:right; }
+.bk-why{ font-size:13px; text-align:right; }
 .bk-ghost{ padding:13px 18px; border:1px solid #cfd7e0; border-radius:9px; background:#fff; color:var(--ink2); font:inherit;
   font-size:15px; font-weight:600; cursor:pointer; text-decoration:none; white-space:nowrap; }
 .bk-go{ display:inline-block; padding:13px 28px; border:0; border-radius:9px; background:var(--blue); color:#fff; font:inherit;
