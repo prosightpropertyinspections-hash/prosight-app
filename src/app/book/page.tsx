@@ -149,6 +149,13 @@ export default function BookPage() {
   const primaryDef = PRIMARY.find(p => p.k === primary);
   const fullInspection = primary === "buyer" || primary === "listing";
   const sqftNum = Number(prop.sqft) || 0;
+  const SQFT_MIN = 200, SQFT_MAX = 15000;
+  const [sqftBlur, setSqftBlur] = useState(false);
+  const sqftOk = sqftNum >= SQFT_MIN && sqftNum <= SQFT_MAX;
+  const sqftMsg = !prop.sqft ? "" : sqftNum > SQFT_MAX
+    ? `That looks too large. For homes over ${SQFT_MAX.toLocaleString()} sq ft, please call us for a quote.`
+    : sqftNum < SQFT_MIN && (sqftBlur || tried)
+      ? `That looks too small. Enter at least ${SQFT_MIN} sq ft.` : "";
   const tier = inspectionTier(sqftNum);
 
   const address = [prop.street.trim() + (prop.unit.trim() ? `, ${prop.unit.trim()}` : ""), prop.city.trim(), `MI ${prop.zip.trim()}`]
@@ -159,7 +166,7 @@ export default function BookPage() {
 
   const valid = [
     !!primary,
-    !!prop.street.trim() && !!prop.city.trim() && /^\d{5}$/.test(prop.zip.trim()) && (!fullInspection || sqftNum >= 200),
+    !!prop.street.trim() && !!prop.city.trim() && /^\d{5}$/.test(prop.zip.trim()) && (!fullInspection || sqftOk),
     true,
     primary !== "testing" || addons.length > 0,
     !!time,
@@ -169,8 +176,8 @@ export default function BookPage() {
 
   const hint = [
     "Choose the type of inspection to continue.",
-    fullInspection && !(sqftNum >= 200) && prop.street.trim() && prop.city.trim() && /^\d{5}$/.test(prop.zip.trim())
-      ? "Enter the square footage to continue."
+    fullInspection && !sqftOk && prop.street.trim() && prop.city.trim() && /^\d{5}$/.test(prop.zip.trim())
+      ? (sqftNum > SQFT_MAX ? "Square footage is too large for online booking. Please call us." : sqftNum > 0 ? `Square footage should be at least ${SQFT_MIN}.` : "Enter the square footage to continue.")
       : "Enter the street, city and a 5-digit ZIP.",
     "",
     "Choose at least one test.",
@@ -404,8 +411,9 @@ export default function BookPage() {
                     <div className="bk-form">
                       <div className="bk-two">
                         <label><span>Square feet {fullInspection ? <b>*</b> : null}</span>
-                          <input inputMode="numeric" data-bad={bad(fullInspection && !(sqftNum >= 200))} value={prop.sqft} onChange={e => setP({ sqft: digits(e.target.value).slice(0, 6) })}
-                            placeholder="1,800" /></label>
+                          <input inputMode="numeric" data-bad={sqftMsg ? "1" : bad(fullInspection && !sqftOk)} onBlur={() => setSqftBlur(true)} value={prop.sqft} onChange={e => setP({ sqft: digits(e.target.value).slice(0, 6) })}
+                            placeholder="1,800" />
+                          {sqftMsg ? <em className="bk-fmsg" role="alert">{sqftMsg}</em> : null}</label>
                         <label><span>Year built</span>
                           <input inputMode="numeric" maxLength={4} value={prop.year} onChange={e => setP({ year: digits(e.target.value).slice(0, 4) })}
                             placeholder="1956" /></label>
@@ -686,6 +694,7 @@ const BK_CSS = `
 .bk-form input::placeholder, .bk-form textarea::placeholder{ color:#a3aebb; }
 .bk-form [data-bad="1"]{ border-color:#d33; background:#fff8f8; box-shadow:0 0 0 3px rgba(221,51,51,.14); }
 .bk-why{ color:#c62828; font-weight:600; }
+.bk-fmsg{ display:block; margin-top:6px; font-style:normal; font-size:13px; font-weight:600; color:#c62828; }
 .bk-types[data-bad="1"], .bk-adds[data-bad="1"], .bk-slots[data-bad="1"]{ outline:2px solid #d33; outline-offset:6px; border-radius:12px; }
 .bk-wrap[data-s="0"] [data-bad="1"]{ animation:bk-shake-a .45s cubic-bezier(.36,.07,.19,.97) both; }
 .bk-wrap[data-s="1"] [data-bad="1"]{ animation:bk-shake-b .45s cubic-bezier(.36,.07,.19,.97) both; }
