@@ -62,7 +62,7 @@ export default function BookPage() {
   const [primary, setPrimary] = useState<PrimaryKey | "">("");
   const [addons, setAddons] = useState<string[]>([]);
   const [prop, setProp] = useState({ street: "", unit: "", city: "", zip: "", sqft: "", year: "", foundation: "" });
-  const setP = (v: Partial<typeof prop>) => { setProp(o => ({ ...o, ...v })); clearErr(...Object.keys(v)); };
+  const setP = (v: Partial<typeof prop>) => setProp(o => ({ ...o, ...v }));
 
   /* Address suggestions as they type the street; picking one fills the
      street, city and ZIP. One Google session per address keeps it cheap. */
@@ -95,7 +95,7 @@ export default function BookPage() {
     setSession(Math.random().toString(36).slice(2) + Date.now().toString(36));
   }
   const [c, setC] = useState({ name: "", phone: "", email: "", notes: "", consent: false });
-  const setCt = (v: Partial<typeof c>) => { setC(o => ({ ...o, ...v })); clearErr(...Object.keys(v), ...("phone" in v || "email" in v ? ["phone", "email"] : [])); };
+  const setCt = (v: Partial<typeof c>) => setC(o => ({ ...o, ...v }));
 
   // the next fourteen working days, Sundays dropped
   const days = useMemo(() => {
@@ -155,57 +155,27 @@ export default function BookPage() {
   const phoneOk = !c.phone.trim() || digits(c.phone).length >= 10;
   const emailOk = !c.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim());
 
-  /* What's missing on a step, keyed by field, in plain words. Continue is
-     always clickable: pressing it with something missing shakes and outlines
-     the fields to fix, instead of a grayed-out button that looks broken. */
-  function problems(n: number): Record<string, string> {
-    const e: Record<string, string> = {};
-    if (n === 0 && !primary) e.primary = "Choose the type of inspection.";
-    if (n === 1) {
-      if (!prop.street.trim()) e.street = "Enter the street address.";
-      if (!prop.city.trim()) e.city = "Enter the city.";
-      if (!/^\d{5}$/.test(prop.zip.trim())) e.zip = "Enter a 5-digit ZIP.";
-      if (fullInspection) {
-        if (!prop.sqft.trim()) e.sqft = "Enter the square footage. A close estimate is fine.";
-        else if (sqftNum < 200) e.sqft = "That looks too small. Enter the home's finished square footage.";
-      }
-    }
-    if (n === 3 && primary === "testing" && addons.length === 0) e.addons = "Choose at least one test.";
-    if (n === 4 && !time) e.time = "Pick a time for the inspection.";
-    if (n === 5) {
-      if (!c.name.trim()) e.name = "Enter your full name.";
-      if (!c.phone.trim() && !c.email.trim()) { e.phone = "Add a phone number or an email."; e.email = " "; }
-      else {
-        if (!phoneOk) e.phone = "Enter a 10-digit phone number.";
-        if (!emailOk) e.email = "That email doesn't look right.";
-      }
-    }
-    return e;
-  }
-  const [errs, setErrs] = useState<Record<string, string>>({});
-  const clearErr = (...keys: string[]) => setErrs(e => {
-    if (!keys.some(k => k in e)) return e;
-    const n = { ...e }; keys.forEach(k => delete n[k]); return n;
-  });
+  const valid = [
+    !!primary,
+    !!prop.street.trim() && !!prop.city.trim() && /^\d{5}$/.test(prop.zip.trim()) && (!fullInspection || sqftNum >= 200),
+    true,
+    primary !== "testing" || addons.length > 0,
+    !!time,
+    !!c.name.trim() && (!!c.phone.trim() || !!c.email.trim()) && phoneOk && emailOk,
+    true,
+  ];
 
-  function tryNext() {
-    const e = problems(step);
-    if (!Object.keys(e).length) { go(nextOf(step)); return; }
-    setErrs(e);
-    requestAnimationFrame(() => {
-      const bad = Array.from(document.querySelectorAll<HTMLElement>('[data-err="1"]'));
-      bad.forEach(el => el.animate?.(
-        [{ transform: "translateX(0)" }, { transform: "translateX(-7px)" }, { transform: "translateX(6px)" },
-         { transform: "translateX(-4px)" }, { transform: "translateX(2px)" }, { transform: "translateX(0)" }],
-        { duration: 380, easing: "ease-out" }));
-      const first = bad[0];
-      if (first) {
-        first.scrollIntoView({ behavior: "smooth", block: "center" });
-        const input = first.querySelector("input,textarea") as HTMLElement | null;
-        setTimeout(() => input?.focus({ preventScroll: true }), 250);
-      }
-    });
-  }
+  const hint = [
+    "Choose the type of inspection to continue.",
+    fullInspection && !(sqftNum >= 200) && prop.street.trim() && prop.city.trim() && /^\d{5}$/.test(prop.zip.trim())
+      ? "Enter the square footage to continue."
+      : "Enter the street, city and a 5-digit ZIP.",
+    "",
+    "Choose at least one test.",
+    "Pick a time to continue.",
+    !phoneOk ? "That phone number looks too short." : !emailOk ? "That email doesn't look right." : "Add your name and a phone number or email.",
+    "",
+  ];
 
   /* The price step only applies to a full inspection; testing and
      re-inspections go straight from the property to the add-ons. */
@@ -214,13 +184,12 @@ export default function BookPage() {
   const prevOf = (i: number) => visible[visible.indexOf(i) - 1] ?? i;
 
   function go(n: number) {
-    setErr(""); setErrs({});
+    setErr("");
     setStep(n);
     setReached(r => Math.max(r, n));
   }
 
   function toggleAddon(k: string) {
-    clearErr("addons");
     setAddons(v => v.includes(k) ? v.filter(x => x !== k) : [...v, k]);
   }
 
@@ -357,10 +326,10 @@ export default function BookPage() {
             <div className="bk-grid">
               <div className="bk-main">
                 {step === 0 && (
-                  <div className="bk-types" data-err={errs.primary ? "1" : "0"}>
+                  <div className="bk-types">
                     {PRIMARY.map(p => (
                       <button key={p.k} type="button" data-on={primary === p.k ? "1" : "0"}
-                        onClick={() => { setPrimary(p.k); clearErr("primary"); if (p.k === "reinspect") setAddons([]); }}>
+                        onClick={() => { setPrimary(p.k); if (p.k === "reinspect") setAddons([]); }}>
                         <span className="bk-ico"><Icon name={p.icon} /></span>
                         <strong>{p.t}</strong>
                         <em>{p.d}</em>
@@ -375,7 +344,7 @@ export default function BookPage() {
                     <h2>Property address</h2>
                     <div className="bk-form">
                       <div className="bk-ac">
-                        <label data-err={errs.street ? "1" : "0"}><span>Street address <b>*</b></span>
+                        <label><span>Street address <b>*</b></span>
                           <input autoComplete="off" name="bk-street" value={prop.street} placeholder="Start typing the address"
                             role="combobox" aria-expanded={sugOpen && sugs.length > 0} aria-autocomplete="list"
                             onChange={e => { setP({ street: e.target.value }); setTyped(e.target.value); setSugOpen(true); }}
@@ -387,8 +356,7 @@ export default function BookPage() {
                               else if (e.key === "ArrowUp") { e.preventDefault(); setSugIdx(i => Math.max(i - 1, 0)); }
                               else if (e.key === "Enter" && sugIdx >= 0) { e.preventDefault(); pickAddress(sugs[sugIdx]); }
                               else if (e.key === "Escape") setSugOpen(false);
-                            }} />
-                          {errs.street && <small className="bk-ferr">{errs.street}</small>}</label>
+                            }} /></label>
                         {sugOpen && sugs.length > 0 && (
                           <ul className="bk-sugs" role="listbox">
                             {sugs.map((sg, i) => (
@@ -406,25 +374,22 @@ export default function BookPage() {
                         <input autoComplete="address-line2" value={prop.unit} onChange={e => setP({ unit: e.target.value })}
                           placeholder="Apt, suite, unit (optional)" /></label>
                       <div className="bk-three">
-                        <label data-err={errs.city ? "1" : "0"}><span>City <b>*</b></span>
+                        <label><span>City <b>*</b></span>
                           <input autoComplete="address-level2" value={prop.city} onChange={e => setP({ city: e.target.value })}
-                            placeholder="Dearborn" />
-                          {errs.city && <small className="bk-ferr">{errs.city}</small>}</label>
+                            placeholder="Dearborn" /></label>
                         <label><span>State</span>
                           <input value="Michigan" readOnly tabIndex={-1} className="bk-ro" /></label>
-                        <label data-err={errs.zip ? "1" : "0"}><span>ZIP <b>*</b></span>
+                        <label><span>ZIP <b>*</b></span>
                           <input autoComplete="postal-code" inputMode="numeric" maxLength={5} value={prop.zip}
-                            onChange={e => setP({ zip: digits(e.target.value).slice(0, 5) })} placeholder="48127" />
-                          {errs.zip && <small className="bk-ferr">{errs.zip}</small>}</label>
+                            onChange={e => setP({ zip: digits(e.target.value).slice(0, 5) })} placeholder="48127" /></label>
                       </div>
                     </div>
                     <h2 className="bk-h2b">Property details</h2>
                     <div className="bk-form">
                       <div className="bk-two">
-                        <label data-err={errs.sqft ? "1" : "0"}><span>Square feet {fullInspection ? <b>*</b> : null}</span>
+                        <label><span>Square feet {fullInspection ? <b>*</b> : null}</span>
                           <input inputMode="numeric" value={prop.sqft} onChange={e => setP({ sqft: digits(e.target.value).slice(0, 6) })}
-                            placeholder="1,800" />
-                          {errs.sqft && <small className="bk-ferr">{errs.sqft}</small>}</label>
+                            placeholder="1,800" /></label>
                         <label><span>Year built</span>
                           <input inputMode="numeric" maxLength={4} value={prop.year} onChange={e => setP({ year: digits(e.target.value).slice(0, 4) })}
                             placeholder="1956" /></label>
@@ -469,7 +434,7 @@ export default function BookPage() {
                 )}
 
                 {step === 3 && (
-                  <div className="bk-adds" data-err={errs.addons ? "1" : "0"}>
+                  <div className="bk-adds">
                     {fullInspection && (
                       <div className="bk-add bk-incl">
                         <span className="bk-box" data-on="1">✓</span>
@@ -503,12 +468,12 @@ export default function BookPage() {
                         );
                       })}
                     </div>
-                    <div className="bk-slots" data-loading={slotsLoading ? "1" : "0"} data-err={errs.time ? "1" : "0"}>
+                    <div className="bk-slots" data-loading={slotsLoading ? "1" : "0"}>
                       {slots.map(s => {
                         const gone = taken.includes(s);
                         return (
                           <button key={s} type="button" disabled={gone || slotsLoading}
-                            data-on={time === s ? "1" : "0"} onClick={() => { setTime(s); clearErr("time"); }}>
+                            data-on={time === s ? "1" : "0"} onClick={() => setTime(s)}>
                             {label12(s)}
                           </button>
                         );
@@ -524,18 +489,15 @@ export default function BookPage() {
                   <section className="bk-card">
                     <h2>Contact information</h2>
                     <div className="bk-form">
-                      <label data-err={errs.name ? "1" : "0"}><span>Full name <b>*</b></span>
-                        <input autoComplete="name" value={c.name} onChange={e => setCt({ name: e.target.value })} placeholder="Seth Anderson" />
-                        {errs.name && <small className="bk-ferr">{errs.name}</small>}</label>
+                      <label><span>Full name <b>*</b></span>
+                        <input autoComplete="name" value={c.name} onChange={e => setCt({ name: e.target.value })} placeholder="Seth Anderson" /></label>
                       <div className="bk-two">
-                        <label data-err={errs.phone ? "1" : "0"}><span>Mobile phone</span>
+                        <label><span>Mobile phone</span>
                           <input autoComplete="tel" inputMode="tel" value={c.phone} onChange={e => setCt({ phone: e.target.value })}
-                            placeholder="(313) 555-0142" />
-                          {errs.phone && <small className="bk-ferr">{errs.phone}</small>}</label>
-                        <label data-err={errs.email ? "1" : "0"}><span>Email</span>
+                            placeholder="(313) 555-0142" /></label>
+                        <label><span>Email</span>
                           <input autoComplete="email" inputMode="email" value={c.email} onChange={e => setCt({ email: e.target.value })}
-                            placeholder="you@email.com" />
-                          {errs.email?.trim() && <small className="bk-ferr">{errs.email}</small>}</label>
+                            placeholder="you@email.com" /></label>
                       </div>
                       <p className="bk-note">A phone number or an email is required.</p>
                       <label><span>Access notes</span>
@@ -592,9 +554,6 @@ export default function BookPage() {
                   </div>
                 )}
 
-                {(errs.primary || errs.addons || errs.time) && (
-                  <div className="bk-ferr bk-ferr-block" role="alert">{errs.primary || errs.addons || errs.time}</div>
-                )}
                 {err ? <div className="bk-err">{err}</div> : null}
 
                 <div className="bk-nav">
@@ -602,8 +561,9 @@ export default function BookPage() {
                     ? <button type="button" className="bk-ghost" onClick={() => go(prevOf(step))}>← Back</button>
                     : <a className="bk-ghost" href={SITE}>← Website</a>}
                   <div className="bk-navr">
+                    {!valid[step] && <span className="bk-why">{hint[step]}</span>}
                     {step < LAST
-                      ? <button type="button" className="bk-go" onClick={tryNext}>
+                      ? <button type="button" className="bk-go" disabled={!valid[step]} onClick={() => go(nextOf(step))}>
                           {step === 3 && primary !== "testing" && addons.length === 0 ? "Skip" : "Continue"} →
                         </button>
                       : <button type="button" className="bk-go" disabled={busy} onClick={submit}>
@@ -737,13 +697,6 @@ const BK_CSS = `
 /* Browser autofill paints fields gray; keep them white. */
 .bk-form input:-webkit-autofill{ -webkit-box-shadow:0 0 0 40px #fff inset; -webkit-text-fill-color:var(--ink); }
 .bk-ac{ position:relative; }
-.bk-form label[data-err="1"] input, .bk-form label[data-err="1"] textarea{ border-color:#d64545; background:#fff8f7;
-  box-shadow:0 0 0 3px rgba(214,69,69,.13); }
-.bk-form label[data-err="1"] > span{ color:#b3362a; }
-.bk-ferr{ display:block; margin-top:6px; font-size:13px; font-weight:500; color:#b3362a; }
-.bk-ferr-block{ margin-top:14px; padding:11px 14px; border-radius:9px; background:#fdf1ef; border:1px solid #f3c2bd; }
-.bk-types[data-err="1"] button, .bk-adds[data-err="1"] .bk-add{ border-color:#e9a29b; }
-.bk-slots[data-err="1"] button:not(:disabled){ border-color:#e9a29b; }
 .bk-sugs{ position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:20; list-style:none; margin:0; padding:6px;
   background:#fff; border:1px solid #cfd7e0; border-radius:10px; box-shadow:0 18px 40px -18px rgba(13,31,51,.45); }
 .bk-sugs li{ display:flex; align-items:center; gap:11px; padding:10px 11px; border-radius:8px; cursor:pointer; }
@@ -864,7 +817,7 @@ const BK_CSS = `
   .bk-home img{ height:46px; }
   .bk-call .bk-need{ display:none; }
   .bk-call{ font-size:14px; }
-  .bk-wrap{ padding:24px 16px 48px; }
+  .bk-wrap{ padding:24px 16px 150px; }
   .bk-title{ font-size:25px; }
   .bk-sub{ font-size:14.5px; margin-bottom:20px; }
   .bk-types{ grid-template-columns:1fr; gap:10px; }
@@ -886,11 +839,14 @@ const BK_CSS = `
   .bk-slots{ grid-template-columns:repeat(3,minmax(0,1fr)); }
   .bk-days{ flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
   .bk-days::-webkit-scrollbar{ display:none; }
-  .bk-nav{ flex-wrap:wrap; }
-  .bk-navr{ width:100%; flex-direction:column-reverse; align-items:stretch; gap:8px; margin:0; order:-1; }
-  .bk-why{ text-align:center; }
+  /* Continue stays pinned to the bottom of the screen so nobody has to scroll for it. */
+  .bk-nav{ position:fixed; left:0; right:0; bottom:0; z-index:40; margin:0; flex-wrap:nowrap; align-items:flex-end; gap:10px;
+    background:#fff; border-top:1px solid var(--line); box-shadow:0 -8px 24px -12px rgba(13,31,51,.25);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px)); }
+  .bk-navr{ flex:1; min-width:0; width:auto; flex-direction:column-reverse; align-items:stretch; gap:6px; margin:0; }
+  .bk-why{ text-align:center; font-size:12.5px; }
   .bk-go{ width:100%; text-align:center; padding:15px; }
-  .bk-ghost{ width:100%; text-align:center; }
+  .bk-ghost{ width:auto; flex-shrink:0; text-align:center; padding:13px 14px; }
   .bk-foot{ font-size:11.5px; }
 }
 @media (pointer:coarse){
