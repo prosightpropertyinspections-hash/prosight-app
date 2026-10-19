@@ -304,7 +304,7 @@ export default function BookPage() {
         </nav>
       )}
 
-      <main className={`bk-wrap${step < LAST && valid[step] ? " bk-ready" : ""}`}>
+      <main className={`bk-wrap${step < LAST && valid[step] ? " bk-ready" : ""}`} data-s={shake % 2}>
         {done ? (
           <div className="bk-done">
             <div className="bk-tick">✓</div>
@@ -342,7 +342,7 @@ export default function BookPage() {
             <div className="bk-grid">
               <div className="bk-main">
                 {step === 0 && (
-                  <div className="bk-types">
+                  <div className="bk-types" data-bad={bad(!valid[0])}>
                     {PRIMARY.map(p => (
                       <button key={p.k} type="button" data-on={primary === p.k ? "1" : "0"}
                         onClick={() => { setPrimary(p.k); if (p.k === "reinspect") setAddons([]); }}>
@@ -450,7 +450,7 @@ export default function BookPage() {
                 )}
 
                 {step === 3 && (
-                  <div className="bk-adds">
+                  <div className="bk-adds" data-bad={bad(!valid[3])}>
                     {fullInspection && (
                       <div className="bk-add bk-incl">
                         <span className="bk-box" data-on="1">✓</span>
@@ -484,7 +484,7 @@ export default function BookPage() {
                         );
                       })}
                     </div>
-                    <div className="bk-slots" data-loading={slotsLoading ? "1" : "0"}>
+                    <div className="bk-slots" data-bad={bad(!valid[4])} data-loading={slotsLoading ? "1" : "0"}>
                       {slots.map(s => {
                         const gone = taken.includes(s);
                         return (
@@ -579,7 +579,7 @@ export default function BookPage() {
                   <div className="bk-navr">
                     {tried && !valid[step] && <span className="bk-why" role="alert">{hint[step].replace(" to continue", "")}</span>}
                     {step < LAST
-                      ? <button key={shake} type="button" className={`bk-go${tried && !valid[step] ? " bk-shake" : ""}`} onClick={tryNext}>
+                      ? <button type="button" className="bk-go" onClick={tryNext}>
                           {step === 3 && primary !== "testing" && addons.length === 0 ? "Skip" : "Continue"} →
                         </button>
                       : <button type="button" className="bk-go" disabled={busy} onClick={submit}>
@@ -686,9 +686,12 @@ const BK_CSS = `
 .bk-form input::placeholder, .bk-form textarea::placeholder{ color:#a3aebb; }
 .bk-form [data-bad="1"]{ border-color:#d33; background:#fff8f8; box-shadow:0 0 0 3px rgba(221,51,51,.14); }
 .bk-why{ color:#c62828; font-weight:600; }
-.bk-shake{ animation:bk-shake .45s cubic-bezier(.36,.07,.19,.97) both; }
-@keyframes bk-shake{ 10%,90%{ transform:translateX(-2px); } 20%,80%{ transform:translateX(4px); } 30%,50%,70%{ transform:translateX(-7px); } 40%,60%{ transform:translateX(7px); } }
-@media (prefers-reduced-motion:reduce){ .bk-shake{ animation:none; } }
+.bk-types[data-bad="1"], .bk-adds[data-bad="1"], .bk-slots[data-bad="1"]{ outline:2px solid #d33; outline-offset:6px; border-radius:12px; }
+.bk-wrap[data-s="0"] [data-bad="1"]{ animation:bk-shake-a .45s cubic-bezier(.36,.07,.19,.97) both; }
+.bk-wrap[data-s="1"] [data-bad="1"]{ animation:bk-shake-b .45s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes bk-shake-a{ 10%,90%{ transform:translateX(-2px); } 20%,80%{ transform:translateX(4px); } 30%,50%,70%{ transform:translateX(-7px); } 40%,60%{ transform:translateX(7px); } }
+@keyframes bk-shake-b{ 10%,90%{ transform:translateX(-2px); } 20%,80%{ transform:translateX(4px); } 30%,50%,70%{ transform:translateX(-7px); } 40%,60%{ transform:translateX(7px); } }
+@media (prefers-reduced-motion:reduce){ .bk-wrap [data-bad="1"]{ animation:none !important; } }
 .bk-form input:focus, .bk-form textarea:focus{ outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(33,150,212,.16); }
 .bk-form .bk-ro{ background:#f3f5f8; color:var(--ink2); }
 .bk-form textarea{ resize:vertical; }
