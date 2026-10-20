@@ -432,28 +432,44 @@ export default function BookPage() {
                 )}
 
                 {step === 2 && tier && (
-                  <section className="bk-card">
-                    <h2>{primary === "listing" ? "Pre-listing (seller) inspection" : "Home buyer inspection"}</h2>
-                    <div className="bk-quote">
-                      <div className="bk-quote-top">
-                        <span>Your price</span>
-                        <strong>{money(tier.price)}</strong>
-                        <em>{Number(prop.sqft).toLocaleString("en-US")} sq ft · {tier.label}</em>
+                  <section className="bk-card bk-pcard">
+                    <header className="bk-ph">
+                      <div>
+                        <span className="bk-pk">{primary === "listing" ? "Pre-listing (seller) inspection" : "Home buyer inspection"}</span>
+                        <h3>Your inspection price</h3>
                       </div>
-                      <ul className="bk-incl-list">
-                        <li>Every major system: roof, structure, electrical, plumbing, heating and cooling</li>
-                        <li>Thermal imaging included</li>
-                        <li>Digital report with photos, the same day</li>
-                        <li>About two hours on site, and you're welcome to attend</li>
-                      </ul>
+                      <span className="bk-seal">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6z" /><path d="M9 12l2.2 2.2L15.5 10" /></svg>
+                        InterNACHI Certified
+                      </span>
+                    </header>
+                    <div className="bk-pbody">
+                      <div className="bk-pbox">
+                        <span>Flat rate</span>
+                        <strong><sup>$</sup>{tier.price.toLocaleString("en-US")}</strong>
+                        <em>{Number(prop.sqft).toLocaleString("en-US")} sq ft &middot; {tier.label}</em>
+                      </div>
+                      <div className="bk-pinc">
+                        <h4>What's included</h4>
+                        <ul className="bk-incl-list">
+                          <li>Every major system: roof, structure, electrical, plumbing, heating and cooling</li>
+                          <li>Thermal imaging, included at no extra charge</li>
+                          <li>Digital report with photos, delivered the same day</li>
+                          <li>About two hours on site, and you're welcome to attend</li>
+                        </ul>
+                      </div>
                     </div>
-                    <div className="bk-tiers">
+                    <div className="bk-ptiers">
+                      <h4>Pricing by home size</h4>
                       {INSPECTION_TIERS.map(tr => (
                         <div key={tr.label} data-on={tr === tier ? "1" : "0"}>
                           <span>{tr.label}</span><strong>{money(tr.price)}</strong>
                         </div>
                       ))}
                     </div>
+                    <p className="bk-pnext">
+                      Next step: optionally add a sewer scope ({money(ADDON_PRICES["Sewer scope"] as number)}) or radon test ({money(ADDON_PRICES["Radon test"] as number)}).
+                    </p>
                   </section>
                 )}
 
@@ -890,5 +906,36 @@ const BK_CSS = `
 @media (pointer:coarse){
   .bk-form input, .bk-form textarea{ font-size:16px; }
   .bk-go, .bk-ghost, .bk-slots button{ min-height:48px; }
+}
+
+/* ---------- price step: bold treatment ---------- */
+.bk{ --bold:"Sora","Inter",sans-serif; }
+.bk-pcard{ border-radius:16px; overflow:hidden; border:2px solid var(--navy); box-shadow:0 30px 60px -36px rgba(13,31,51,.55); }
+.bk-ph{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:20px 28px; background:var(--navy); color:#fff; }
+.bk-pk{ display:block; font-size:12px; font-weight:800; letter-spacing:1.8px; text-transform:uppercase; color:#6cc4f2; margin-bottom:6px; }
+.bk-ph h3{ margin:0; font-family:var(--bold); font-weight:800; font-size:26px; letter-spacing:-.6px; color:#fff; }
+.bk-seal{ display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:999px; font-size:13px; font-weight:800; color:var(--navy); background:#fff; white-space:nowrap; }
+.bk-seal svg{ width:18px; height:18px; fill:none; stroke:var(--ok); stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
+.bk-pbody{ display:grid; grid-template-columns:280px 1fr; gap:30px; padding:28px; align-items:center; }
+.bk-pbox{ text-align:center; padding:28px 20px 24px; border-radius:14px; color:#fff; background:linear-gradient(160deg,#2aa3e6 0%,#1a7ab0 100%); box-shadow:0 22px 40px -22px rgba(26,122,176,.9); }
+.bk-pbox span{ display:block; font-size:12.5px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#d8eefb; }
+.bk-pbox strong{ display:block; font-family:var(--bold); font-weight:800; font-size:78px; line-height:1; letter-spacing:-3px; margin:12px 0 10px; }
+.bk-pbox sup{ font-size:.4em; vertical-align:top; position:relative; top:.3em; margin-right:3px; letter-spacing:0; }
+.bk-pbox em{ display:block; font-style:normal; font-size:13.5px; font-weight:600; color:#e9f6fd; }
+.bk-pinc h4, .bk-ptiers h4{ margin:0 0 14px; font-size:12px; font-weight:800; letter-spacing:1.8px; text-transform:uppercase; color:var(--navy); }
+.bk-pcard .bk-incl-list{ gap:14px; }
+.bk-pcard .bk-incl-list li{ font-size:15.5px; font-weight:600; color:var(--ink); padding-left:32px; }
+.bk-pcard .bk-incl-list li::before{ width:22px; height:22px; top:0; background:var(--ok); color:#fff; font-size:12px; }
+.bk-ptiers{ margin:0 28px; padding-top:22px; border-top:2px solid var(--line); }
+.bk-ptiers div{ display:flex; justify-content:space-between; align-items:baseline; padding:12px 16px; font-size:15px; font-weight:600; color:var(--ink2); border-radius:10px; }
+.bk-ptiers div + div{ margin-top:3px; }
+.bk-ptiers div strong{ font-family:var(--bold); font-weight:800; font-size:16px; font-variant-numeric:tabular-nums; }
+.bk-ptiers div[data-on="1"]{ background:var(--navy); color:#fff; font-weight:800; box-shadow:none; }
+.bk-pnext{ margin:22px 0 0; padding:16px 28px; background:#eef6fc; border-top:2px solid var(--line); font-size:14px; font-weight:700; color:var(--navy); }
+@media (max-width:760px){
+  .bk-ph{ padding:18px; flex-wrap:wrap; } .bk-ph h3{ font-size:22px; }
+  .bk-pbody{ grid-template-columns:1fr; gap:22px; padding:20px 18px; }
+  .bk-pbox strong{ font-size:68px; }
+  .bk-ptiers{ margin:0 18px; } .bk-pnext{ padding:14px 18px; }
 }
 `;
