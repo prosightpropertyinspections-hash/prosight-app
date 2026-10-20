@@ -155,7 +155,7 @@ export default function BookPage() {
   const sqftMsg = !prop.sqft ? "" : sqftNum > SQFT_MAX
     ? `That looks too large. For homes over ${SQFT_MAX.toLocaleString()} sq ft, please call us for a quote.`
     : sqftNum < SQFT_MIN && (sqftBlur || tried)
-      ? `That looks too small. Enter at least ${SQFT_MIN} sq ft.` : "";
+      ? "Too small. Please enter the minimum square footage." : "";
   const tier = inspectionTier(sqftNum);
 
   const address = [prop.street.trim() + (prop.unit.trim() ? `, ${prop.unit.trim()}` : ""), prop.city.trim(), `MI ${prop.zip.trim()}`]
@@ -177,7 +177,7 @@ export default function BookPage() {
   const hint = [
     "Choose the type of inspection to continue.",
     fullInspection && !sqftOk && prop.street.trim() && prop.city.trim() && /^\d{5}$/.test(prop.zip.trim())
-      ? (sqftNum > SQFT_MAX ? "Square footage is too large for online booking. Please call us." : sqftNum > 0 ? `Square footage should be at least ${SQFT_MIN}.` : "Enter the square footage to continue.")
+      ? (sqftNum > SQFT_MAX ? "Square footage is too large for online booking. Please call us." : sqftNum > 0 ? "Square footage is too small." : "Enter the square footage to continue.")
       : "Enter the street, city and a 5-digit ZIP.",
     "",
     "Choose at least one test.",
