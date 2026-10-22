@@ -11,8 +11,8 @@ export const INSPECTION_TIERS = [
 
 /** Fixed add-on prices. null = quoted separately. */
 export const ADDON_PRICES: Record<string, number | null> = {
-  "Sewer scope": 150,
-  "Radon test": 200,
+  "Sewer scope": 175,
+  "Radon test": 170,
   "Mold / air quality": null,
 };
 
