@@ -22,6 +22,8 @@ type Appt = {
 
 const SERVICES = [
   "Full home inspection",
+  "Condo inspection",
+  "New construction inspection",
   "Re-inspection",
   "Sewer scope",
   "Radon test",
