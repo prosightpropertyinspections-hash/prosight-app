@@ -89,11 +89,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "That time was just taken. Please choose another." }, { status: 409 });
     }
 
+    // A condo is saved as "Condo inspection" so it reads correctly in the schedule. The price was already worked out above.
+
+    const savedServices = (services.length ? services : ["Full home inspection"])
+
+      .map(s => (b.property_type === "condo" && s === "Full home inspection" ? "Condo inspection" : s));
+
     const row: any = {
       client_name: name,
       phone, email, address,
-      service: services[0] || "Full home inspection",
-      services: services.length ? services : ["Full home inspection"],
+      service: savedServices[0],
+      services: savedServices,
       // Priced here from the same table the page shows, never taken from the browser.
       fee: quote(services.length ? services : ["Full home inspection"],
         Math.max(0, Math.min(99999, Math.round(Number(b.sqft) || 0))),
