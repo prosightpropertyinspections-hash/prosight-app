@@ -74,6 +74,7 @@ export default function BookPage() {
   const [step, setStep] = useState(0);
   const [reached, setReached] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [leaving, setLeaving] = useState(false);   // the current step is fading out
   const [tried, setTried] = useState(false);   // Continue was pressed while something is missing
   const [shake, setShake] = useState(0);
   const [err, setErr] = useState("");
@@ -224,11 +225,18 @@ export default function BookPage() {
     });
   }
 
+  /* Steps cross-fade: the current one fades out, then the next fades in. */
   function go(n: number) {
+    if (leaving || n === step) return;
     setTried(false);
     setErr("");
-    setStep(n);
     setReached(r => Math.max(r, n));
+    setLeaving(true);
+    window.setTimeout(() => {
+      setStep(n);
+      setLeaving(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 190);
   }
 
   function toggleAddon(k: string) {
@@ -348,7 +356,7 @@ export default function BookPage() {
             <a className="bk-go" href={SITE}>Back to the website</a>
           </div>
         ) : (
-          <>
+          <div key={step} className={`bk-stage${leaving ? " bk-out" : ""}`}>
             <h1 className="bk-title">
               {step === 0 && "What type of inspection do you need?"}
               {step === 1 && "Property information"}
@@ -668,7 +676,7 @@ export default function BookPage() {
                 )}
               </aside>
             </div>
-          </>
+          </div>
         )}
       </main>
 
@@ -1010,4 +1018,10 @@ const BK_CSS = `
 @keyframes bk-twinkle{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
 @keyframes bk-pop{ 0%{ transform:scale(.8); } 100%{ transform:scale(1); } }
 @media (prefers-reduced-motion:reduce){ .bk-ptype *{ animation:none !important; transition:none !important; } }
+
+/* smooth step transitions (opacity only, so the fixed Continue bar keeps working) */
+.bk-stage{ animation:bk-stage-in .45s ease both; }
+.bk-stage.bk-out{ animation:none; opacity:0; transition:opacity .19s ease; pointer-events:none; }
+@keyframes bk-stage-in{ from{ opacity:0; } to{ opacity:1; } }
+@media (prefers-reduced-motion:reduce){ .bk-stage, .bk-stage.bk-out{ animation:none; transition:none; } }
 `;
