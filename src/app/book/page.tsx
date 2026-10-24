@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { ADDON_PRICES, INSPECTION_TIERS, inspectionTier, quote, money } from "@/lib/pricing";
+import { ADDON_PRICES, INSPECTION_TIERS, inspectionTier, quote, money, condoPrice } from "@/lib/pricing";
 
 /* Public booking. Linked from the marketing site, no account needed.
    Six short steps with a visible progress bar: a stranger abandons a wall of
@@ -223,7 +223,9 @@ export default function BookPage() {
     ...addons,
   ];
 
-  const priced = quote(services, sqftNum);
+  const isCondo = propType === "condo";
+  const shown = (n: number) => (isCondo ? condoPrice(n) : n);
+  const priced = quote(services, sqftNum, isCondo);
 
   const propDetails = [
     propType === "condo" ? "Condo / apartment" : "Single-family home",
@@ -249,7 +251,7 @@ export default function BookPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: c.name, phone: c.phone, email: c.email, address,
-          notes, services, sqft: sqftNum, starts_at: `${day}T${time}:00`, sms_consent: c.consent,
+          notes, services, sqft: sqftNum, property_type: propType, starts_at: `${day}T${time}:00`, sms_consent: c.consent,
         }),
       });
       const j = await res.json();
@@ -461,9 +463,9 @@ export default function BookPage() {
                     </header>
                     <div className="bk-pbody">
                       <div className="bk-pbox">
-                        <span>Flat rate</span>
-                        <strong><sup>$</sup>{tier.price.toLocaleString("en-US")}</strong>
-                        <em>{Number(prop.sqft).toLocaleString("en-US")} sq ft &middot; {tier.label}</em>
+                        <span>{isCondo ? "Condo rate" : "Flat rate"}</span>
+                        <strong><sup>$</sup>{shown(tier.price).toLocaleString("en-US")}</strong>
+                        <em>{Number(prop.sqft).toLocaleString("en-US")} sq ft &middot; {tier.label}{isCondo ? " · 20% off the home rate" : ""}</em>
                       </div>
                       <div className="bk-pinc">
                         <h4>What's included</h4>
@@ -476,10 +478,10 @@ export default function BookPage() {
                       </div>
                     </div>
                     <div className="bk-ptiers">
-                      <h4>Pricing by home size</h4>
+                      <h4>{isCondo ? "Condo pricing by size" : "Pricing by home size"}</h4>
                       {INSPECTION_TIERS.map(tr => (
                         <div key={tr.label} data-on={tr === tier ? "1" : "0"}>
-                          <span>{tr.label}</span><strong>{money(tr.price)}</strong>
+                          <span>{tr.label}</span><strong>{money(shown(tr.price))}</strong>
                         </div>
                       ))}
                     </div>

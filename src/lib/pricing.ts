@@ -16,6 +16,10 @@ export const ADDON_PRICES: Record<string, number | null> = {
   "Mold / air quality": null,
 };
 
+/** Condos and apartments pay 20% less than a home of the same square footage. */
+export const CONDO_DISCOUNT = 0.2;
+export const condoPrice = (n: number) => Math.round(n * (1 - CONDO_DISCOUNT));
+
 export const FULL_INSPECTION = "Full home inspection";
 
 export function inspectionTier(sqft: number) {
@@ -25,11 +29,11 @@ export function inspectionTier(sqft: number) {
 
 export type QuoteLine = { label: string; price: number | null };
 
-export function quote(services: string[], sqft: number) {
+export function quote(services: string[], sqft: number, condo = false) {
   const lines: QuoteLine[] = services.map(s => {
     if (s === FULL_INSPECTION) {
       const t = inspectionTier(sqft);
-      return { label: "Home inspection", price: t ? t.price : null };
+      return { label: condo ? "Condo inspection" : "Home inspection", price: t ? (condo ? condoPrice(t.price) : t.price) : null };
     }
     return { label: s, price: s in ADDON_PRICES ? ADDON_PRICES[s] : null };
   });

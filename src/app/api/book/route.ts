@@ -96,7 +96,8 @@ export async function POST(req: NextRequest) {
       services: services.length ? services : ["Full home inspection"],
       // Priced here from the same table the page shows, never taken from the browser.
       fee: quote(services.length ? services : ["Full home inspection"],
-        Math.max(0, Math.min(99999, Math.round(Number(b.sqft) || 0)))).total,
+        Math.max(0, Math.min(99999, Math.round(Number(b.sqft) || 0))),
+        b.property_type === "condo").total,
       starts_at: when.toISOString(),
       duration_min: DURATION_MIN,
       status: "requested",
