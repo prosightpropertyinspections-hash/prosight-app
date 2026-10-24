@@ -465,7 +465,7 @@ export default function BookPage() {
                       <div className="bk-pbox">
                         <span>{isCondo ? "Condo rate" : "Flat rate"}</span>
                         <strong><sup>$</sup>{shown(tier.price).toLocaleString("en-US")}</strong>
-                        <em>{Number(prop.sqft).toLocaleString("en-US")} sq ft &middot; {tier.label}{isCondo ? " · 20% off the home rate" : ""}</em>
+                        <em>{Number(prop.sqft).toLocaleString("en-US")} sq ft &middot; {tier.label}</em>
                       </div>
                       <div className="bk-pinc">
                         <h4>What's included</h4>
