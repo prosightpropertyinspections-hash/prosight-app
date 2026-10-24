@@ -44,6 +44,23 @@ const label12 = (hhmm: string) => {
 
 const digits = (s: string) => s.replace(/\D/g, "");
 
+/* Line-drawn house / condo. Strokes draw themselves and the windows light up
+   when the tile is selected; the same drawing is reused as a faded watermark. */
+function PTypeArt({ kind }: { kind: "home" | "condo" }) {
+  const lines = kind === "home"
+    ? ["M3 11l9-8 9 8", "M16.5 6.4V3.6H19v5", "M5 10v10h14V10", "M9.8 20v-5.5h4.4V20"]
+    : ["M5 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17", "M15 9h3a1 1 0 0 1 1 1v11", "M3 21h18", "M10 21v-3"];
+  const wins: [number, number][] = kind === "home"
+    ? [[6.9, 12.4], [15.3, 12.4]]
+    : [[7.2, 6], [10.4, 6], [7.2, 10], [10.4, 10], [7.2, 14], [10.4, 14], [16.6, 12.6], [16.6, 16.2]];
+  return (
+    <>
+      {lines.map((d, i) => <path key={i} d={d} pathLength={1} className="pd" style={{ "--i": i } as any} />)}
+      {wins.map(([x, y], i) => <rect key={i} x={x} y={y} width={1.8} height={1.8} rx={0.3} className="pw" style={{ "--i": i } as any} />)}
+    </>
+  );
+}
+
 function Icon({ name }: { name: string }) {
   const p = { fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   if (name === "house") return <svg viewBox="0 0 24 24" {...p}><path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" /><path d="M9.5 20v-6h5v6" /></svg>;
@@ -371,7 +388,10 @@ export default function BookPage() {
                   <div className="bk-ptype" role="radiogroup" aria-label="Property type">
                     {([["home", "house", "Home", "Single-family or townhome"], ["condo", "condo", "Condo / apartment", "Unit in a larger building"]] as const).map(([k, ic, t, d]) => (
                       <button key={k} type="button" role="radio" aria-checked={propType === k} data-on={propType === k ? "1" : "0"} onClick={() => { setPropType(k); if (k === "condo") setP({ foundation: "" }); }}>
-                        <span className="bk-ico"><Icon name={ic} /></span>
+                        <svg className="bk-pwm" viewBox="0 0 24 24" aria-hidden="true"><PTypeArt kind={k} /></svg>
+                        <span className="bk-ico">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><PTypeArt kind={k} /></svg>
+                        </span>
                         <strong>{t}</strong><em>{d}</em>
                       </button>
                     ))}
@@ -968,4 +988,26 @@ const BK_CSS = `
 .bk-ptype em{ font-style:normal; font-size:13px; color:var(--ink2); align-self:start; }
 @media (max-width:620px){ .bk-ptype{ gap:10px; } .bk-ptype button{ grid-template-columns:1fr; row-gap:6px; padding:14px; text-align:center; justify-items:center; }
   .bk-ptype .bk-ico{ grid-row:auto; } .bk-ptype strong, .bk-ptype em{ align-self:auto; } }
+
+/* property type tiles: animated icon + faded watermark */
+.bk-ptype button{ overflow:hidden; transition:border-color .25s, background .25s, box-shadow .25s; }
+.bk-ptype button > *:not(.bk-pwm){ position:relative; z-index:1; }
+.bk-ptype .bk-ico{ transition:background .3s, color .3s; }
+.bk-ptype .bk-ico svg, .bk-pwm{ fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; }
+.bk-ptype .bk-ico svg{ stroke-width:1.7; }
+.bk-ptype .pw{ fill:currentColor; stroke:none; opacity:.4; }
+.bk-ptype .pd{ stroke-dasharray:1; stroke-dashoffset:0; }
+.bk-ptype button[data-on="1"] .bk-ico{ background:var(--blue); color:#fff; animation:bk-pop .6s cubic-bezier(.34,1.56,.64,1); }
+.bk-ptype button[data-on="1"] .pd{ animation:bk-draw .95s cubic-bezier(.65,0,.35,1) both; animation-delay:calc(var(--i) * .13s); }
+.bk-ptype button[data-on="1"] .pw{ animation:bk-win .5s ease-out both, bk-twinkle 4s ease-in-out 1.8s infinite; animation-delay:calc(.55s + var(--i) * .09s), calc(1.8s + var(--i) * .35s); }
+.bk-pwm{ position:absolute; z-index:0; right:-8px; bottom:-18px; width:112px; height:112px; color:var(--blue); stroke-width:.8; opacity:0;
+  transform:translateX(18px) scale(.9); transition:opacity .6s ease, transform .8s cubic-bezier(.2,.8,.2,1); pointer-events:none; }
+.bk-ptype button[data-on="1"] .bk-pwm{ opacity:.12; transform:none; }
+.bk-ptype .bk-pwm .pw{ opacity:.5; }
+@keyframes bk-draw{ from{ stroke-dashoffset:1; } to{ stroke-dashoffset:0; } }
+@keyframes bk-win{ from{ opacity:0; transform:scale(.3); } to{ opacity:1; transform:scale(1); } }
+.bk-ptype .pw{ transform-box:fill-box; transform-origin:center; }
+@keyframes bk-twinkle{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
+@keyframes bk-pop{ 0%{ transform:scale(.8); } 100%{ transform:scale(1); } }
+@media (prefers-reduced-motion:reduce){ .bk-ptype *{ animation:none !important; transition:none !important; } }
 `;
