@@ -1031,5 +1031,6 @@ const BK_CSS = `
 /* Home Buyer shows both a house and an apartment: either can be bought */
 .bk-ico2{ display:inline-flex; align-items:center; justify-content:center; gap:10px; width:auto; padding:0 16px; }
 .bk-ico2 i{ width:1px; height:22px; background:currentColor; opacity:.28; }
-@media (max-width:620px){ .bk-ico2{ width:auto; min-width:48px; padding:0 10px; gap:7px; } .bk-ico2 svg{ width:21px; height:21px; flex-shrink:0; } .bk-ico2 i{ height:18px; } .bk-types button:has(.bk-ico2){ grid-template-columns:auto 1fr; } }
+/* bk-ico2 stacked */
+@media (max-width:620px){ .bk-ico2{ flex-direction:column; width:48px; min-width:0; height:auto; padding:9px 0; gap:6px; } .bk-ico2 svg{ width:22px; height:22px; flex-shrink:0; } .bk-ico2 i{ width:18px; height:1px; } }
 `;
