@@ -383,7 +383,10 @@ export default function BookPage() {
                     {PRIMARY.map(p => (
                       <button key={p.k} type="button" data-on={primary === p.k ? "1" : "0"}
                         onClick={() => { setPrimary(p.k); if (p.k === "reinspect") setAddons([]); }}>
-                        <span className="bk-ico"><Icon name={p.icon} /></span>
+                        <span className={`bk-ico${p.k === "buyer" ? " bk-ico2" : ""}`}>
+                          <Icon name={p.icon} />
+                          {p.k === "buyer" ? <><i aria-hidden="true" /><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17" /><path d="M15 9h3a1 1 0 0 1 1 1v11" /><path d="M3 21h18" /><path d="M9 7h2M9 11h2M9 15h2" /></svg></> : null}
+                        </span>
                         <strong>{p.t}</strong>
                         <em>{p.d}</em>
                         {p.price && <span className="bk-from">{p.price}</span>}
@@ -1024,4 +1027,9 @@ const BK_CSS = `
 .bk-stage.bk-out{ animation:none; opacity:0; transition:opacity .19s ease; pointer-events:none; }
 @keyframes bk-stage-in{ from{ opacity:0; } to{ opacity:1; } }
 @media (prefers-reduced-motion:reduce){ .bk-stage, .bk-stage.bk-out{ animation:none; transition:none; } }
+
+/* Home Buyer shows both a house and an apartment: either can be bought */
+.bk-ico2{ display:inline-flex; align-items:center; justify-content:center; gap:10px; width:auto; padding:0 16px; }
+.bk-ico2 i{ width:1px; height:22px; background:currentColor; opacity:.28; }
+@media (max-width:620px){ .bk-ico2{ width:auto; min-width:48px; padding:0 10px; gap:7px; } .bk-ico2 svg{ width:21px; height:21px; flex-shrink:0; } .bk-ico2 i{ height:18px; } .bk-types button:has(.bk-ico2){ grid-template-columns:auto 1fr; } }
 `;
