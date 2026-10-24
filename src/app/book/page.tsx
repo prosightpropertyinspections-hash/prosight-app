@@ -47,6 +47,7 @@ const digits = (s: string) => s.replace(/\D/g, "");
 function Icon({ name }: { name: string }) {
   const p = { fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   if (name === "house") return <svg viewBox="0 0 24 24" {...p}><path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" /><path d="M9.5 20v-6h5v6" /></svg>;
+  if (name === "condo") return <svg viewBox="0 0 24 24" {...p}><path d="M5 21V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v17" /><path d="M15 9h3a1 1 0 0 1 1 1v11" /><path d="M3 21h18" /><path d="M9 7h2M9 11h2M9 15h2" /></svg>;
   if (name === "sign") return <svg viewBox="0 0 24 24" {...p}><path d="M5 21V3" /><path d="M5 5h13v8H5" /><path d="M9 9h5" /></svg>;
   if (name === "flask") return <svg viewBox="0 0 24 24" {...p}><path d="M9 3h6" /><path d="M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3" /><path d="M7 15h10" /></svg>;
   return <svg viewBox="0 0 24 24" {...p}><path d="M20 6L9 17l-5-5" /></svg>;
@@ -63,6 +64,7 @@ export default function BookPage() {
 
   const [primary, setPrimary] = useState<PrimaryKey | "">("");
   const [addons, setAddons] = useState<string[]>([]);
+  const [propType, setPropType] = useState<"home" | "condo">("home");
   const [prop, setProp] = useState({ street: "", unit: "", city: "", zip: "", sqft: "", year: "", foundation: "" });
   const setP = (v: Partial<typeof prop>) => setProp(o => ({ ...o, ...v }));
 
@@ -224,6 +226,7 @@ export default function BookPage() {
   const priced = quote(services, sqftNum);
 
   const propDetails = [
+    propType === "condo" ? "Condo / apartment" : "Single-family home",
     prop.sqft.trim() && `${prop.sqft.trim()} sq ft`,
     prop.year.trim() && `built ${prop.year.trim()}`,
     prop.foundation && prop.foundation !== "Not sure" && `${prop.foundation} foundation`,
@@ -363,6 +366,17 @@ export default function BookPage() {
                 )}
 
                 {step === 1 && (
+                  <div className="bk-ptype" role="radiogroup" aria-label="Property type">
+                    {([["home", "house", "Home", "Single-family or townhome"], ["condo", "condo", "Condo / apartment", "Unit in a larger building"]] as const).map(([k, ic, t, d]) => (
+                      <button key={k} type="button" role="radio" aria-checked={propType === k} data-on={propType === k ? "1" : "0"} onClick={() => { setPropType(k); if (k === "condo") setP({ foundation: "" }); }}>
+                        <span className="bk-ico"><Icon name={ic} /></span>
+                        <strong>{t}</strong><em>{d}</em>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {step === 1 && (
                   <section className="bk-card">
                     <h2>Property address</h2>
                     <div className="bk-form">
@@ -418,6 +432,7 @@ export default function BookPage() {
                           <input inputMode="numeric" maxLength={4} value={prop.year} onChange={e => setP({ year: digits(e.target.value).slice(0, 4) })}
                             placeholder="1956" /></label>
                       </div>
+                      {propType !== "condo" && (
                       <div>
                         <span className="bk-lbl">Foundation</span>
                         <div className="bk-chips">
@@ -427,6 +442,7 @@ export default function BookPage() {
                           ))}
                         </div>
                       </div>
+                      )}
                     </div>
                   </section>
                 )}
@@ -938,4 +954,16 @@ const BK_CSS = `
   .bk-pbox strong{ font-size:68px; }
   .bk-ptiers{ margin:0 18px; } .bk-pnext{ padding:14px 18px; }
 }
+
+.bk-ptype{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px; }
+.bk-ptype button{ position:relative; display:grid; grid-template-columns:48px 1fr; column-gap:14px; align-items:center; text-align:left; padding:16px 18px;
+  background:#fff; border:1.5px solid var(--line); border-radius:12px; font:inherit; cursor:pointer; color:var(--ink); }
+.bk-ptype button:hover{ border-color:#b9d9ee; }
+.bk-ptype button[data-on="1"]{ border-color:var(--blue); background:#f5fafe; box-shadow:0 0 0 3px rgba(33,150,212,.16); }
+.bk-ptype .bk-ico{ grid-row:1 / 3; width:48px; height:48px; margin:0; display:grid; place-items:center; border-radius:12px; background:#eef6fc; color:var(--blued); }
+.bk-ptype .bk-ico svg{ width:26px; height:26px; }
+.bk-ptype strong{ font-family:"Sora","Inter",sans-serif; font-size:16.5px; font-weight:700; align-self:end; }
+.bk-ptype em{ font-style:normal; font-size:13px; color:var(--ink2); align-self:start; }
+@media (max-width:620px){ .bk-ptype{ gap:10px; } .bk-ptype button{ grid-template-columns:1fr; row-gap:6px; padding:14px; text-align:center; justify-items:center; }
+  .bk-ptype .bk-ico{ grid-row:auto; } .bk-ptype strong, .bk-ptype em{ align-self:auto; } }
 `;
